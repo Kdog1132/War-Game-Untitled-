@@ -40,6 +40,13 @@ func _check(ms: Node, dir_name: String, cell_count: int, sample_id: String, samp
 	if lanes.is_empty():
 		push_error("%s has no lanes" % dir_name)
 		return false
+	if dir_name == "stub_med":
+		var ports: Dictionary = ms.get("ports")
+		for pair in [["p_gibraltar", "gibraltar"], ["p_suez", "suez"]]:
+			var port: Dictionary = ports.get(str(pair[0]), {})
+			if not bool(port.get("chokepoint", false)) or str(port.get("chokepoint_id", "")) != str(pair[1]):
+				push_error("stub_med %s missing chokepoint/chokepoint_id" % str(pair[0]))
+				return false
 	print("loaded %s cells=%d lanes=%d hex=%.1f" % [
 		str(ms.get("theater_id")),
 		cells.size(),

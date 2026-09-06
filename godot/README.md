@@ -28,7 +28,7 @@ HUD shows the theater name / id and the current cell count. Switching theaters r
 
 | Folder | What it is |
 | --- | --- |
-| `data/theaters/stub_med/` | Exact 8-cell Gibraltar → Suez stub (c_0_0…c_5_0 + c_1_1 + Levant c_4_1). Two harbors, one Open lane `l_1`. |
+| `data/theaters/stub_med/` | Exact 8-cell Gibraltar → Suez stub (c_0_0…c_5_0 + c_1_1 + Levant c_4_1). Two harbors (`chokepoint:true`, `chokepoint_id` gibraltar\|suez), one Open lane `l_1`. |
 | `data/theaters/med_v0/` | Larger Mediterranean ribbon sized to the Terra pack: **989 cells / 17 harbors / 34 lanes**. Generated stand-in (50 km hex, EPSG:4326 centroids) so KEY_2 works in-repo. Not the locked coastline mesh. |
 
 Swap path when a locked mesh lands: keep loading `stub_med` by default, then point KEY_2 / `MapService.load_theater("med_v0")` at the replacement files in `data/theaters/med_v0/`. Shipping stays in `shipping_graph.json` only — **do not add `lanes.json`**.

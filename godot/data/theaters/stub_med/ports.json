@@ -5,14 +5,16 @@
       "cell_id": "c_0_0",
       "harbor_node_id": "h_gibraltar",
       "name": "Gibraltar",
-      "chokepoint": false
+      "chokepoint": true,
+      "chokepoint_id": "gibraltar"
     },
     {
       "port_id": "p_suez",
       "cell_id": "c_5_0",
       "harbor_node_id": "h_suez",
       "name": "Suez",
-      "chokepoint": true
+      "chokepoint": true,
+      "chokepoint_id": "suez"
     }
   ]
 }

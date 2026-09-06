@@ -278,6 +278,7 @@ func _normalize_ports(parsed: Variant) -> void:
 		var pid := str(port.get("port_id", ""))
 		if pid.is_empty():
 			continue
+		# Keep Terra fields as-is (chokepoint, chokepoint_id, etc.). No M0 logic.
 		ports[pid] = port
 
 

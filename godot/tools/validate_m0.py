@@ -119,6 +119,14 @@ def check_theater(name: str, expect_cells: int | None = None, expect_ports: int 
         ports = list(ports.values())
     if expect_ports is not None and len(ports) != expect_ports:
         err(f"{name}: expected {expect_ports} ports, got {len(ports)}")
+    if name == "stub_med":
+        by_id = {p.get("port_id"): p for p in ports if isinstance(p, dict)}
+        for pid, cid in (("p_gibraltar", "gibraltar"), ("p_suez", "suez")):
+            port = by_id.get(pid) or {}
+            if port.get("chokepoint") is not True:
+                err(f"stub_med {pid} must have chokepoint:true")
+            if port.get("chokepoint_id") != cid:
+                err(f"stub_med {pid} chokepoint_id must be {cid}")
     sg = raw.get("shipping_graph.json") or {}
     edges = sg.get("edges", []) if isinstance(sg, dict) else []
     if expect_lanes is not None and len(edges) != expect_lanes:
