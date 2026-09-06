@@ -42,9 +42,17 @@ var _preview_path: Array = []
 func _ready() -> void:
 	if camera:
 		camera.make_current()
-	if not ArmyService.changed.is_connected(_on_army_changed):
-		ArmyService.changed.connect(_on_army_changed)
+	_watch(ArmyService)
+	_watch(OwnershipService)
+	_watch(AnnexService)
+	_watch(ShippingService)
+	_watch(BuildingService)
 	rebuild()
+
+
+func _watch(node: Node) -> void:
+	if node != null and node.has_signal("changed") and not node.changed.is_connected(_on_army_changed):
+		node.changed.connect(_on_army_changed)
 
 
 func rebuild() -> void:
@@ -199,9 +207,16 @@ func _draw_hex(cell: Dictionary) -> void:
 	var tag := str(cell.get("terrain_tag", "plains"))
 	var fill: Color = TERRAIN_COLORS.get(tag, TERRAIN_COLORS["plains"])
 	draw_colored_polygon(pts, fill)
-	var owner := MapService.get_cell_owner(str(cell.get("cell_id", "")))
+	var cid := str(cell.get("cell_id", ""))
+	var owner := MapService.get_cell_owner(cid)
 	var tint: Color = OWNER_TINT.get(owner, OWNER_TINT["none"])
+	var claim := AnnexService.claiming_faction(cid)
+	var blend := AnnexService.tint_factor(cid)
+	if blend > 0.0 and claim != "" and OWNER_TINT.has(claim):
+		tint = tint.lerp(OWNER_TINT[claim], blend)
 	draw_colored_polygon(pts, tint)
+	_draw_annex_meter(center, cid)
+	_draw_buildings(center, cid)
 	var outline_pts := pts.duplicate()
 	outline_pts.append(pts[0])
 	var line_col := OUTLINE
@@ -238,11 +253,47 @@ func _draw_lanes() -> void:
 		var b := MapService.cell_world_pos(b_id)
 		var col := LANE_COLOR
 		match str(lane.get("state", "Open")):
+			"Open":
+				col = Color(0.25, 0.82, 0.45, 0.9)
 			"Contested":
 				col = Color(0.95, 0.75, 0.2, 0.9)
 			"Blocked":
 				col = Color(0.7, 0.15, 0.15, 0.75)
 		draw_line(a, b, col, maxf(1.5, MapService.hex_size_px * 0.12))
+
+
+func _draw_annex_meter(center: Vector2, cell_id: String) -> void:
+	var progress := AnnexService.meter(cell_id)
+	if progress <= 0.0:
+		return
+	var w := MapService.hex_size_px * 0.7
+	var h := MapService.hex_size_px * 0.08
+	var origin := center + Vector2(-w * 0.5, MapService.hex_size_px * 0.55)
+	draw_rect(Rect2(origin, Vector2(w, h)), Color(0.08, 0.08, 0.1, 0.7))
+	draw_rect(Rect2(origin, Vector2(w * clampf(progress / 100.0, 0.0, 1.0), h)), Color(0.95, 0.85, 0.25, 0.95))
+
+
+func _draw_buildings(center: Vector2, cell_id: String) -> void:
+	var kinds := BuildingService.kinds_on(cell_id)
+	if kinds.is_empty():
+		return
+	var i := 0
+	for kind in kinds:
+		var p := center + Vector2(MapService.hex_size_px * 0.28, -MapService.hex_size_px * 0.22 + float(i) * MapService.hex_size_px * 0.16)
+		match str(kind):
+			"Factory":
+				draw_rect(Rect2(p - Vector2(4, 4), Vector2(8, 8)), Color("#cfd8dc"))
+			"Road":
+				draw_line(p + Vector2(-6, 0), p + Vector2(6, 0), Color("#6d4c41"), 2.0)
+			"Bunker":
+				draw_colored_polygon(PackedVector2Array([
+					p + Vector2(0, -5), p + Vector2(5, 4), p + Vector2(-5, 4)
+				]), Color("#546e7a"))
+			"Harbor":
+				draw_circle(p, 3.5, Color("#81d4fa"))
+			_:
+				draw_circle(p, 2.5, Color("#eeeeee"))
+		i += 1
 
 
 func _draw_army(pos: Vector2, selected: bool) -> void:

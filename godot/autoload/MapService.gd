@@ -81,7 +81,11 @@ func get_cell_at(axial: Vector2i) -> Dictionary:
 
 
 ## Cell ownership. Never name this get_owner — that shadows Node.get_owner.
+## Runtime source of truth is OwnershipService when that autoload is present.
 func get_cell_owner(cell_id: String) -> String:
+	var os := _ownership()
+	if os != null and os.has_method("get_cell_owner"):
+		return str(os.call("get_cell_owner", cell_id))
 	if cell_owners.has(cell_id):
 		return str(cell_owners[cell_id])
 	var cell: Dictionary = get_cell(cell_id)
@@ -89,8 +93,13 @@ func get_cell_owner(cell_id: String) -> String:
 
 
 func set_cell_owner(cell_id: String, owner: String) -> void:
-	if cells.has(cell_id):
-		cell_owners[cell_id] = owner
+	if not cells.has(cell_id):
+		return
+	var os := _ownership()
+	if os != null and os.has_method("set_cell_owner"):
+		os.call("set_cell_owner", cell_id, owner)
+		return
+	cell_owners[cell_id] = owner
 
 
 func neighbors(cell_id: String) -> Array:
@@ -99,6 +108,10 @@ func neighbors(cell_id: String) -> Array:
 
 func get_port(port_id: String) -> Dictionary:
 	return ports.get(port_id, {})
+
+
+func _ownership() -> Node:
+	return get_node_or_null("/root/OwnershipService")
 
 
 func harbor_cell_id(harbor_node_id: String) -> String:
@@ -331,6 +344,9 @@ func _resolve_ownership() -> void:
 		if seed_owners.has(cid):
 			owner = _norm_owner(seed_owners[cid])
 		cell_owners[cid] = owner
+	var os := _ownership()
+	if os != null and os.has_method("reset_from_theater"):
+		os.call("reset_from_theater")
 
 
 func _norm_owner(value: Variant) -> String:
