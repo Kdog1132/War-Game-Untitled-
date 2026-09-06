@@ -26,11 +26,12 @@ It should boot on `stub_med` with colored hexes, a theater name label, and a wor
 
 HUD shows the theater name / id, army status, and cell count. Switching theaters recenters the camera, redraws the map, and respawns the army on a player-owned cell (`get_cell_owner`).
 
-## M1 — Pathfinder + army
+## M1 — Pathfinder + ArmyService
 
-- `map/Pathfinder.gd` — A* over `MapService` adjacency. Step cost is Forge `enter_time_sec` for the destination terrain (`Balance` wins over theater `terrain_costs`). `water` / null is impassable.
-- `units/Army.gd` — one local player army. Click it, then click a hex; it walks the path, spending enter time (seconds) per hex.
-- Hover a destination while selected to preview the path.
+- `map/Pathfinder.gd` — A* over `MapService` adjacency. Step cost is `enter_time_sec * mobility_mult`. `water` / null is skipped.
+- `autoload/ArmyService.gd` — one player army on `c_0_0` (stub_med). LMB select, LMB a hex to A* + hop.
+- `WorldMap` draws the path and army markers.
+- Ports use the Terra schema: `harbor_node_id`, `chokepoint`, `chokepoint_id` (`gibraltar`|`suez`).
 - MapService ownership stays on **`get_cell_owner`** — never `get_owner` (clashes with `Node.get_owner`).
 
 ## Theaters

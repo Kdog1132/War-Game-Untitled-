@@ -1,7 +1,7 @@
 class_name Pathfinder
 extends RefCounted
-## A* over MapService adjacency. Edge cost = Forge enter_time of the destination cell.
-## Null / missing enter time (e.g. water) is impassable.
+## A* over MapService adjacency.
+## Step cost = enter_time_sec(terrain) * mobility_mult(infra). Water / null is skipped.
 ## Resolves autoloads from the scene tree so this script compiles under --script too.
 
 const NO_PATH := {"ok": false, "cells": [], "cost": INF}
@@ -20,7 +20,25 @@ static func enter_cost(cell_id: String) -> Variant:
 	var cell: Dictionary = ms.call("get_cell", cell_id)
 	if cell.is_empty():
 		return null
-	return ms.call("enter_time_for", str(cell.get("terrain_tag", "")))
+	var tag := str(cell.get("terrain_tag", ""))
+	if tag == "water":
+		return null
+	var et: Variant = ms.call("enter_time_for", tag)
+	if et == null:
+		return null
+	var bal := _balance()
+	var mob := _mobility_kind(cell)
+	var mult := 1.0
+	if bal != null and bool(bal.get("loaded")):
+		mult = float(bal.call("mobility_mult", mob))
+	return float(et) * mult
+
+
+static func _mobility_kind(cell: Dictionary) -> String:
+	var infra := str(cell.get("infra", cell.get("mobility", "none")))
+	if infra.is_empty():
+		return "none"
+	return infra
 
 
 static func is_passable(cell_id: String) -> bool:

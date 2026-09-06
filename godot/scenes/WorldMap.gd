@@ -1,9 +1,7 @@
 extends Node2D
-## Visible hex theater: terrain fill + ownership tint, shipping lanes, Camera2D.
-## M1: one selectable Army, A* click-to-move, path preview.
+## Visible hex theater + M1 LMB select/move, path draw, army markers.
 
 const PathfinderScript := preload("res://map/Pathfinder.gd")
-const ArmyScript := preload("res://units/Army.gd")
 
 signal status_changed(text: String)
 
@@ -34,7 +32,6 @@ const CLICK_PX := 8.0
 
 @onready var camera: Camera2D = $Camera2D
 
-var army = ArmyScript.new()
 var _dragging: bool = false
 var _drag_moved: bool = false
 var _press_pos: Vector2 = Vector2.ZERO
@@ -45,12 +42,13 @@ var _preview_path: Array = []
 func _ready() -> void:
 	if camera:
 		camera.make_current()
+	if not ArmyService.changed.is_connected(_on_army_changed):
+		ArmyService.changed.connect(_on_army_changed)
 	rebuild()
 
 
 func rebuild() -> void:
-	army.place(_first_player_cell())
-	army.selected = false
+	ArmyService.reset_for_theater()
 	_preview_path.clear()
 	_hover_cell = ""
 	queue_redraw()
@@ -69,6 +67,11 @@ func recenter() -> void:
 	camera.zoom = Vector2(z, z)
 
 
+func _on_army_changed() -> void:
+	queue_redraw()
+	_emit_status()
+
+
 func _process(delta: float) -> void:
 	if camera == null:
 		return
@@ -84,10 +87,7 @@ func _process(delta: float) -> void:
 	if pan != Vector2.ZERO:
 		var speed := 520.0 / maxf(camera.zoom.x, 0.05)
 		camera.position += pan.normalized() * speed * delta
-	if army.moving:
-		army.tick(delta)
-		queue_redraw()
-		_emit_status()
+	ArmyService.process_hops(delta)
 	_update_hover()
 
 
@@ -96,10 +96,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ESCAPE:
-			army.selected = false
+			ArmyService.deselect()
 			_preview_path.clear()
-			queue_redraw()
-			_emit_status()
 			get_viewport().set_input_as_handled()
 			return
 	if event is InputEventMouseButton:
@@ -111,10 +109,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_zoom_by(1.0 / 1.12)
 			get_viewport().set_input_as_handled()
 		elif mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
-			army.selected = false
+			ArmyService.deselect()
 			_preview_path.clear()
-			queue_redraw()
-			_emit_status()
 			get_viewport().set_input_as_handled()
 		elif mb.button_index == MOUSE_BUTTON_MIDDLE:
 			_dragging = mb.pressed
@@ -149,20 +145,10 @@ func _zoom_by(factor: float) -> void:
 
 func _click_world() -> void:
 	var cid := _cell_under_mouse()
-	if cid.is_empty():
-		return
-	if cid == army.cell_id or _near_army():
-		army.selected = true
-		queue_redraw()
-		_emit_status()
-		return
-	if not army.selected:
-		return
-	var result := PathfinderScript.find_path(army.cell_id, cid)
-	if army.order_path(result):
-		queue_redraw()
-		_emit_status()
-	else:
+	if cid.is_empty() and _near_army():
+		cid = ArmyService.player_cell()
+	var result := ArmyService.try_click(cid)
+	if result == "no_path":
 		_emit_status("No path")
 
 
@@ -174,10 +160,10 @@ func _update_hover() -> void:
 		return
 	_hover_cell = cid
 	_preview_path.clear()
-	if army.selected and not cid.is_empty() and cid != army.cell_id:
-		var result := PathfinderScript.find_path(army.cell_id, cid)
-		if bool(result.get("ok", false)):
-			_preview_path = result.get("cells", [])
+	if ArmyService.is_selected() and not cid.is_empty() and cid != ArmyService.player_cell():
+		var found: Dictionary = PathfinderScript.find_path(ArmyService.player_cell(), cid)
+		if bool(found.get("ok", false)):
+			_preview_path = found.get("cells", [])
 	queue_redraw()
 
 
@@ -186,7 +172,7 @@ func _cell_under_mouse() -> String:
 
 
 func _near_army() -> bool:
-	var d := get_local_mouse_position() - army.world_pos()
+	var d := get_local_mouse_position() - ArmyService.world_pos()
 	return d.length() <= MapService.hex_size_px * 0.55
 
 
@@ -198,10 +184,11 @@ func _draw() -> void:
 	for cell in MapService.cells.values():
 		_draw_hex(cell)
 	_draw_path(_preview_path, PREVIEW_COL, 2.0)
-	_draw_path(army.last_path if army.moving else [], PATH_COL, 3.0)
+	_draw_path(ArmyService.last_path(), PATH_COL, 3.0)
 	_draw_lanes()
-	if not army.cell_id.is_empty():
-		_draw_army(army.world_pos(), army.selected)
+	for aid in ArmyService.armies.keys():
+		var rec: Dictionary = ArmyService.armies[aid]
+		_draw_army(ArmyService.world_pos(str(aid)), bool(rec.get("selected", false)))
 
 
 func _draw_hex(cell: Dictionary) -> void:
@@ -219,7 +206,7 @@ func _draw_hex(cell: Dictionary) -> void:
 	outline_pts.append(pts[0])
 	var line_col := OUTLINE
 	var width := 1.2
-	if str(cell.get("cell_id", "")) == army.cell_id and army.selected:
+	if str(cell.get("cell_id", "")) == ArmyService.player_cell() and ArmyService.is_selected():
 		line_col = SELECT_COL
 		width = 2.4
 	elif str(cell.get("cell_id", "")) == _hover_cell:
@@ -279,23 +266,15 @@ func _hex_corners(center: Vector2, size: float) -> PackedVector2Array:
 	return pts
 
 
-func _first_player_cell() -> String:
-	for cid in MapService.cells.keys():
-		if MapService.get_cell_owner(str(cid)) == "player":
-			return str(cid)
-	return ""
-
-
 func _emit_status(extra: String = "") -> void:
 	var bits: PackedStringArray = []
 	if extra != "":
 		bits.append(extra)
-	if army.cell_id.is_empty():
+	var cell := ArmyService.player_cell()
+	if cell.is_empty():
 		bits.append("no army")
-	elif army.moving:
-		bits.append("moving %s → %s" % [army.from_cell, army.to_cell])
-	elif army.selected:
-		bits.append("army selected on %s — click a hex to move" % army.cell_id)
+	elif ArmyService.is_selected():
+		bits.append("army selected on %s — LMB a hex to hop" % cell)
 	else:
-		bits.append("click army to select")
+		bits.append("LMB army on %s to select" % cell)
 	status_changed.emit("   ".join(bits))
