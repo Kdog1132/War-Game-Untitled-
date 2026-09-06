@@ -66,6 +66,8 @@ def check_project() -> None:
         err("project.godot main scene must be scenes/Main.tscn")
     if "MapService=" not in pg or "Balance=" not in pg:
         err("project.godot must autoload MapService and Balance")
+    if "SimTick=" not in pg:
+        err("project.godot should autoload optional SimTick stub")
     for rel in (
         "scenes/Main.tscn",
         "scenes/WorldMap.tscn",

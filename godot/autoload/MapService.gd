@@ -80,6 +80,7 @@ func get_cell_at(axial: Vector2i) -> Dictionary:
 	return get_cell(cid)
 
 
+## Cell ownership. Never name this get_owner — that shadows Node.get_owner.
 func get_cell_owner(cell_id: String) -> String:
 	if cell_owners.has(cell_id):
 		return str(cell_owners[cell_id])

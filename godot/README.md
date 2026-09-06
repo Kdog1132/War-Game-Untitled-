@@ -55,4 +55,4 @@ Autoload. Flat JSON → Dictionaries.
 
 ## Out of scope (M0)
 
-No multiplayer. `autoload/SimTick.gd` is a TODO stub for the atlas-sim tick order (income → builds → movement → combat → annex → lanes → win).
+No multiplayer. `autoload/SimTick.gd` is an autoload stub with TODOs for the atlas-sim tick order (income → builds → movement → combat → annex → lanes → win).

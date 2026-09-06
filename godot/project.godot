@@ -12,6 +12,7 @@ config/icon="res://icon.svg"
 [autoload]
 MapService="*res://autoload/MapService.gd"
 Balance="*res://autoload/Balance.gd"
+SimTick="*res://autoload/SimTick.gd"
 
 [display]
 window/size/viewport_width=1280

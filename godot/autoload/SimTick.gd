@@ -1,6 +1,5 @@
 extends Node
-## Optional M0 stub — atlas-sim tick order is not implemented yet.
-## Wire this as an autoload when income / movement / combat land.
+## Optional M0 autoload stub — atlas-sim tick order is not implemented yet.
 ##
 ## TODO tick order (atlas-sim):
 ##   1. income
