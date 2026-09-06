@@ -152,8 +152,8 @@ func map_bounds() -> Rect2:
 			max_p = p
 			have = true
 		else:
-			min_p = min_p.min(p)
-			max_p = max_p.max(p)
+			min_p = Vector2(minf(min_p.x, p.x), minf(min_p.y, p.y))
+			max_p = Vector2(maxf(max_p.x, p.x), maxf(max_p.y, p.y))
 	if not have:
 		return Rect2(Vector2.ZERO, Vector2.ONE)
 	var pad := Vector2(hex_size_px * 2.0, hex_size_px * 2.0)
