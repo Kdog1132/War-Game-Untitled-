@@ -1,0 +1,39 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scenes/Main.gd" id="1_main"]
+[ext_resource type="PackedScene" path="res://scenes/WorldMap.tscn" id="2_world"]
+
+[node name="Main" type="Node"]
+script = ExtResource("1_main")
+
+[node name="WorldMap" parent="." instance=ExtResource("2_world")]
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="Panel" type="ColorRect" parent="HUD"]
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 52.0
+grow_horizontal = 2
+color = Color(0.06, 0.07, 0.1, 0.72)
+mouse_filter = 2
+
+[node name="TheaterLabel" type="Label" parent="HUD"]
+offset_left = 16.0
+offset_top = 6.0
+offset_right = 900.0
+offset_bottom = 32.0
+theme_override_colors/font_color = Color(0.95, 0.96, 0.98, 1)
+theme_override_font_sizes/font_size = 20
+mouse_filter = 2
+text = "Theater"
+
+[node name="HelpLabel" type="Label" parent="HUD"]
+offset_left = 16.0
+offset_top = 30.0
+offset_right = 1260.0
+offset_bottom = 50.0
+theme_override_colors/font_color = Color(0.78, 0.82, 0.88, 0.9)
+theme_override_font_sizes/font_size = 13
+mouse_filter = 2
+text = "1 stub_med   2 med_v0   WASD / drag pan   wheel zoom"

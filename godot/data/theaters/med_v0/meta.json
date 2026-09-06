@@ -1,0 +1,10 @@
+{
+  "theater_id": "med_v0",
+  "name": "Mediterranean v0",
+  "hex_km": 50,
+  "crs": "EPSG:4326",
+  "cell_count": 989,
+  "harbor_count": 17,
+  "lane_count": 34,
+  "note": "M0 stand-in sized to the Terra pack (989 / 17 / 34). Coastline is a generated ribbon, not the locked mesh."
+}

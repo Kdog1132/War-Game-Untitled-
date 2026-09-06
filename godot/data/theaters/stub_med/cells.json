@@ -1,0 +1,90 @@
+[
+  {
+    "cell_id": "c_0_0",
+    "q": 0,
+    "r": 0,
+    "terrain_tag": "hill",
+    "is_coast": true,
+    "harbor_site": true,
+    "default_owner": "player",
+    "centroid": { "lon": -5.35, "lat": 36.14 },
+    "name": "Gibraltar"
+  },
+  {
+    "cell_id": "c_1_0",
+    "q": 1,
+    "r": 0,
+    "terrain_tag": "plains",
+    "is_coast": true,
+    "harbor_site": false,
+    "default_owner": "player",
+    "centroid": { "lon": -3.6, "lat": 37.2 },
+    "name": "Andalusia"
+  },
+  {
+    "cell_id": "c_2_0",
+    "q": 2,
+    "r": 0,
+    "terrain_tag": "urban",
+    "is_coast": true,
+    "harbor_site": false,
+    "default_owner": "none",
+    "centroid": { "lon": 12.5, "lat": 41.9 },
+    "name": "Italy"
+  },
+  {
+    "cell_id": "c_3_0",
+    "q": 3,
+    "r": 0,
+    "terrain_tag": "hill",
+    "is_coast": true,
+    "harbor_site": false,
+    "default_owner": "none",
+    "centroid": { "lon": 22.9, "lat": 38.2 },
+    "name": "Greece"
+  },
+  {
+    "cell_id": "c_4_0",
+    "q": 4,
+    "r": 0,
+    "terrain_tag": "mountain",
+    "is_coast": true,
+    "harbor_site": false,
+    "default_owner": "none",
+    "centroid": { "lon": 32.8, "lat": 39.0 },
+    "name": "Anatolia"
+  },
+  {
+    "cell_id": "c_5_0",
+    "q": 5,
+    "r": 0,
+    "terrain_tag": "desert",
+    "is_coast": true,
+    "harbor_site": true,
+    "default_owner": "enemy",
+    "centroid": { "lon": 32.35, "lat": 30.0 },
+    "name": "Suez"
+  },
+  {
+    "cell_id": "c_1_1",
+    "q": 1,
+    "r": 1,
+    "terrain_tag": "desert",
+    "is_coast": true,
+    "harbor_site": false,
+    "default_owner": "none",
+    "centroid": { "lon": 3.1, "lat": 36.2 },
+    "name": "Maghreb"
+  },
+  {
+    "cell_id": "c_4_1",
+    "q": 4,
+    "r": 1,
+    "terrain_tag": "desert",
+    "is_coast": true,
+    "harbor_site": false,
+    "default_owner": "enemy",
+    "centroid": { "lon": 35.2, "lat": 33.4 },
+    "name": "Levant"
+  }
+]

@@ -1,0 +1,13 @@
+{
+  "factions": [
+    { "id": "player", "name": "Player", "color": "#2E6BFF" },
+    { "id": "enemy", "name": "Enemy", "color": "#E23B3B" },
+    { "id": "none", "name": "Neutral", "color": "#9E9E9E" }
+  ],
+  "cell_owners": {
+    "c_0_0": "player",
+    "c_1_0": "player",
+    "c_5_0": "enemy",
+    "c_4_1": "enemy"
+  }
+}
