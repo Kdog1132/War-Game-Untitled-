@@ -4,7 +4,7 @@ config_version=5
 
 [application]
 config/name="Atlas Stub Med"
-config/description="M0 Mediterranean hex stub — map + camera + MapService"
+config/description="M0/M1 Mediterranean hex — map + camera + MapService + A* army"
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.2", "Forward Plus")
 config/icon="res://icon.svg"

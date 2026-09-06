@@ -1,6 +1,6 @@
-# Atlas M0 — Stub Mediterranean
+# Atlas M0 / M1 — Stub Mediterranean
 
-Godot 4.2+ hex theater scaffold for Atlas (Godot Core). Loads JSON theaters through a thin `MapService` (no `.tres`), draws terrain + ownership, and pans/zooms with a `Camera2D`.
+Godot 4.2+ hex theater scaffold for Atlas (Godot Core). Loads JSON theaters through a thin `MapService` (no `.tres`), draws terrain + ownership, pans/zooms with a `Camera2D`, and (M1) pathfinds one army with Forge enter times.
 
 This folder is the M0 project. The repo root still holds the earlier v0.1 square-grid prototype — import **this** folder (`godot/project.godot`) for the hex map.
 
@@ -17,12 +17,21 @@ It should boot on `stub_med` with colored hexes, a theater name label, and a wor
 | Input | Action |
 | --- | --- |
 | **WASD** or arrow keys | Pan |
+| Left-click | Select the army, or (if selected) A* move to that hex |
 | Left-drag or middle-drag | Pan |
+| Right-click or **Esc** | Deselect army |
 | Mouse wheel | Zoom |
 | **1** | Load `stub_med` (hex size ~48 px) |
 | **2** | Load `med_v0` (hex size ~14 px) |
 
-HUD shows the theater name / id and the current cell count. Switching theaters recenters the camera and redraws the map.
+HUD shows the theater name / id, army status, and cell count. Switching theaters recenters the camera, redraws the map, and respawns the army on a player-owned cell (`get_cell_owner`).
+
+## M1 — Pathfinder + army
+
+- `map/Pathfinder.gd` — A* over `MapService` adjacency. Step cost is Forge `enter_time_sec` for the destination terrain (`Balance` wins over theater `terrain_costs`). `water` / null is impassable.
+- `units/Army.gd` — one local player army. Click it, then click a hex; it walks the path, spending enter time (seconds) per hex.
+- Hover a destination while selected to preview the path.
+- MapService ownership stays on **`get_cell_owner`** — never `get_owner` (clashes with `Node.get_owner`).
 
 ## Theaters
 

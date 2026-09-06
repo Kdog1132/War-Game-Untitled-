@@ -8,6 +8,8 @@ extends Node
 
 
 func _ready() -> void:
+	if world_map.has_signal("status_changed"):
+		world_map.status_changed.connect(_on_map_status)
 	_load_theater("stub_med")
 
 
@@ -36,4 +38,9 @@ func _load_theater(dir_name: String) -> void:
 func _refresh_hud() -> void:
 	var name := str(MapService.meta.get("name", MapService.theater_id))
 	theater_label.text = "%s  (%s)" % [name, MapService.theater_id]
-	help_label.text = "1 stub_med   2 med_v0   WASD / drag pan   wheel zoom   %d cells" % MapService.cells.size()
+	help_label.text = "1 stub_med   2 med_v0   click army + hex to move   WASD/drag pan   wheel zoom   %d cells" % MapService.cells.size()
+
+
+func _on_map_status(text: String) -> void:
+	var name := str(MapService.meta.get("name", MapService.theater_id))
+	theater_label.text = "%s  (%s)  —  %s" % [name, MapService.theater_id, text]

@@ -142,6 +142,25 @@ func cell_world_pos(cell_id: String) -> Vector2:
 	return axial_to_world(int(cell.get("q", 0)), int(cell.get("r", 0)))
 
 
+func cell_axial(cell_id: String) -> Vector2i:
+	var cell: Dictionary = get_cell(cell_id)
+	return Vector2i(int(cell.get("q", 0)), int(cell.get("r", 0)))
+
+
+func cell_id_at_world(world: Vector2) -> String:
+	return str(cells_by_axial.get(world_to_axial(world), ""))
+
+
+func hex_distance(a_id: String, b_id: String) -> int:
+	return hex_distance_axial(cell_axial(a_id), cell_axial(b_id))
+
+
+func hex_distance_axial(a: Vector2i, b: Vector2i) -> int:
+	var dq := a.x - b.x
+	var dr := a.y - b.y
+	return int((absi(dq) + absi(dr) + absi(dq + dr)) / 2)
+
+
 func map_bounds() -> Rect2:
 	var have := false
 	var min_p := Vector2.ZERO

@@ -47,7 +47,7 @@ def check_gdscript_api() -> None:
     if "func get_cell_owner(" not in ms:
         err("MapService must define get_cell_owner")
     if re.search(r"func get_owner\s*\(", ms):
-        err("MapService must not define get_owner (use get_cell_owner)")
+        err("MapService must not define get_owner (clashes with Node.get_owner; use get_cell_owner)")
     world = (ROOT / "scenes" / "WorldMap.gd").read_text()
     if "get_owner(" in world:
         err("WorldMap.gd must call get_cell_owner, not get_owner")
