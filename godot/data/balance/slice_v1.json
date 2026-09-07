@@ -21,20 +21,29 @@
     "Contested": 12,
     "Blocked": null
   },
+  "supply": {
+    "per_land": 1,
+    "per_factory": 8
+  },
   "supply_trade": {
     "Contested": 1,
     "Open": 3,
     "Blocked": 0
   },
   "annex": {
-    "rate_per_tick": 0.15,
-    "city_bonus": 0.05,
-    "fort_penalty": 0.08
+    "unclaimed_base_pct": 12,
+    "unclaimed_str_scale": 0.02,
+    "unclaimed_str_cap": 8,
+    "enemy_empty_base_pct": 5,
+    "enemy_empty_str_scale": 0.015,
+    "enemy_empty_str_cap": 5,
+    "vacate_decay_pct": 25,
+    "flip_at": 100
   },
   "buildings": {
-    "Harbor": { "cost": 80, "build_ticks": 8 },
-    "Factory": { "cost": 100, "build_ticks": 10 },
-    "Road": { "cost": 35, "build_ticks": 3 },
+    "Harbor": { "cost": 200, "build_ticks": 20 },
+    "Factory": { "cost": 150, "build_ticks": 15 },
+    "Road": { "cost": 40, "build_ticks": 5 },
     "Rail": { "cost": 85, "build_ticks": 6 },
     "Bunker": { "cost": 50, "build_ticks": 5 },
     "AA": { "cost": 40, "build_ticks": 4 },

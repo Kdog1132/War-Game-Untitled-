@@ -48,6 +48,13 @@ def check_gdscript_api() -> None:
         err("MapService must define get_cell_owner")
     if re.search(r"func get_owner\s*\(", ms):
         err("MapService must not define get_owner (clashes with Node.get_owner; use get_cell_owner)")
+    own = ROOT / "autoload" / "OwnershipService.gd"
+    if own.is_file():
+        ot = own.read_text()
+        if "func get_cell_owner(" not in ot or "func set_cell_owner(" not in ot:
+            err("OwnershipService must define get_cell_owner / set_cell_owner")
+        if re.search(r"func get_owner\s*\(", ot):
+            err("OwnershipService must not define get_owner")
     world = (ROOT / "scenes" / "WorldMap.gd").read_text()
     if "get_owner(" in world:
         err("WorldMap.gd must call get_cell_owner, not get_owner")
@@ -68,6 +75,9 @@ def check_project() -> None:
         err("project.godot must autoload MapService and Balance")
     if "SimTick=" not in pg:
         err("project.godot should autoload optional SimTick stub")
+    for al in ("OwnershipService=", "EconomyService=", "BuildingService=", "AnnexService=", "ShippingService="):
+        if al not in pg:
+            err(f"project.godot must autoload {al.rstrip('=')}")
     for rel in (
         "scenes/Main.tscn",
         "scenes/WorldMap.tscn",
@@ -180,11 +190,33 @@ def check_balance() -> None:
     st = data.get("supply_trade", {})
     if st.get("Contested") != 1 or st.get("Open") != 3:
         err("slice_v1 supply_trade Contested/Open must be +1/+3")
+    supply = data.get("supply") or {}
+    if supply.get("per_land") != 1 or supply.get("per_factory") != 8:
+        err("slice_v1 supply must be 1/land + 8/factory")
+    annex = data.get("annex") or {}
+    if annex.get("unclaimed_base_pct") != 12 or annex.get("enemy_empty_base_pct") != 5:
+        err("slice_v1 annex unclaimed/enemy-empty bases must be 12/5")
+    if annex.get("vacate_decay_pct") != 25 or annex.get("flip_at") != 100:
+        err("slice_v1 annex vacate/flip must be 25/100")
     if (data.get("win") or {}).get("land_control") != 0.7:
         err("slice_v1 win.land_control must be 0.7")
+    buildings = data.get("buildings") or {}
+    expect_b = {
+        "Harbor": (200, 20),
+        "Factory": (150, 15),
+        "Road": (40, 5),
+        "Bunker": (50, 5),
+    }
+    for b, (cost, ticks) in expect_b.items():
+        rec = buildings.get(b) or {}
+        if rec.get("cost") != cost or rec.get("build_ticks") != ticks:
+            err(f"slice_v1 {b} must be {cost}/{ticks}, got {rec}")
     for b in ("Harbor", "Factory", "Road", "Rail", "Bunker", "AA", "SAM"):
-        if b not in (data.get("buildings") or {}):
+        if b not in buildings:
             err(f"slice_v1 missing building {b}")
+    lc = data.get("lane_control") or {}
+    if not lc.get("contest_if_one_end_enemy") or not lc.get("block_if_both_ends_enemy"):
+        err("slice_v1 lane_control must contest one enemy end and block both")
 
 
 def check_hex_math() -> None:
