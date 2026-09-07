@@ -1,19 +1,14 @@
-# med_v0 overlays
+# med_v0 overlays — minimal spike
 
-**TODO: swap this stub for Terra’s bake** when these files land in this folder:
+| File | Use |
+|------|-----|
+| ocean.png / land_fill.png | Backdrop |
+| coastline.geojson | Coast Line2D |
+| admin_regions_slice1.geojson | **Slice 1** — 8 clickable territories |
+| admin_regions.geojson | 19-country set |
+| admin_borders.geojson | Border strokes |
+| meta.json | bbox EPSG:4326 `[-10,28,42,47]` + sizes |
 
-| Terra file | Role |
-| --- | --- |
-| `meta.json` | EPSG:4326 bounds (`west/south/east/north` or `min_lon` / `max_lat` …) |
-| `ocean.png` | Sea raster, mapped to those bounds |
-| `land_fill.png` | Land raster |
-| `coastline.geojson` | Coast rings or lines (EPSG:4326) |
-| `admin.geojson` | Admin / territory polygons (EPSG:4326) |
+No hex chrome. No DEM.
 
-`MapService` prefers that Terra set automatically (`overlay_source = "terra"`).
-
-Until then the playable stub is:
-
-- `coastline.geojson` — Europe / Africa / Anatolia land + Med sea box
-- `territories.geojson` — eight named territories (Gibraltar → Suez)
-- `med_paint.png` — preview only, not used in-game
+**Loader:** `MapService` prefers Terra (`meta.json` + rasters + `admin_regions_slice1.geojson`). Full `admin_regions.geojson` (19) is paint-only fallback. Until the pack lands, stub `coastline.geojson` + `territories.geojson` stay playable.

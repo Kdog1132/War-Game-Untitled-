@@ -220,6 +220,8 @@ func _draw_painted_map() -> void:
 			_stroke_feature(feat, Color("#d8c4a0"), 1.8)
 	for feat in MapService.overlays_of_kind("territory"):
 		_draw_territory(feat)
+	for feat in MapService.overlays_of_kind("border"):
+		_stroke_feature(feat, Color(0.22, 0.16, 0.10, 0.45), 1.2)
 	for feat in MapService.overlays_of_kind("coastline"):
 		_stroke_feature(feat, COAST, 1.8)
 	if MapService.overlay_rasters.is_empty():

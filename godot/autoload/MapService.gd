@@ -363,20 +363,28 @@ func _load_overlays(dir_name: String) -> void:
 
 
 func _load_terra_overlays(folder: String) -> bool:
-	var meta_path := "%s/meta.json" % folder
-	var has_meta := FileAccess.file_exists(meta_path)
+	var slice := "%s/admin_regions_slice1.geojson" % folder
+	var full := "%s/admin_regions.geojson" % folder
+	var legacy := "%s/admin.geojson" % folder
 	var has_png := FileAccess.file_exists("%s/land_fill.png" % folder) or FileAccess.file_exists("%s/ocean.png" % folder)
-	var has_admin := FileAccess.file_exists("%s/admin.geojson" % folder)
-	if not has_meta and not has_png and not has_admin:
+	var has_admin := FileAccess.file_exists(slice) or FileAccess.file_exists(full) or FileAccess.file_exists(legacy)
+	# meta.json alone is not a Terra pack (stub folder already has it).
+	if not has_png and not has_admin:
 		return false
-	if has_meta:
-		_apply_overlay_meta(meta_path)
+	_apply_overlay_meta("%s/meta.json" % folder)
 	_load_overlay_png(folder, "ocean.png", "ocean")
 	_load_overlay_png(folder, "land_fill.png", "land")
-	if FileAccess.file_exists("%s/coastline.geojson" % folder):
+	if FileAccess.file_exists("%s/coastline.geojson" % folder) and has_png:
 		_ingest_geojson("%s/coastline.geojson" % folder, "coastline")
-	if has_admin:
-		_ingest_geojson("%s/admin.geojson" % folder, "territory")
+	# Spike: slice1 (8) first; full 19-country admin_regions only if slice1 is missing.
+	if FileAccess.file_exists(slice):
+		_ingest_geojson(slice, "territory")
+	elif FileAccess.file_exists(full):
+		_ingest_geojson(full, "territory")
+	elif FileAccess.file_exists(legacy):
+		_ingest_geojson(legacy, "territory")
+	if FileAccess.file_exists("%s/admin_borders.geojson" % folder):
+		_ingest_geojson("%s/admin_borders.geojson" % folder, "border")
 	return not overlay_features.is_empty() or not overlay_rasters.is_empty()
 
 
@@ -391,7 +399,7 @@ func _load_stub_overlays(folders: PackedStringArray) -> void:
 		var fname := dir.get_next()
 		while fname != "":
 			if not dir.current_is_dir() and fname.ends_with(".geojson") and not seen.has(fname):
-				if fname == "admin.geojson":
+				if fname.begins_with("admin"):
 					fname = dir.get_next()
 					continue
 				seen[fname] = true
@@ -400,22 +408,34 @@ func _load_stub_overlays(folders: PackedStringArray) -> void:
 		dir.list_dir_end()
 
 
-func _apply_overlay_meta(path: String) -> void:
-	var parsed: Variant = _read_json(path)
-	if typeof(parsed) != TYPE_DICTIONARY:
-		return
-	var d: Dictionary = parsed
+func _overlay_bbox(d: Dictionary) -> Array:
+	## EPSG:4326 [west, south, east, north]. Default Terra Med box.
+	if d.has("bbox") and typeof(d["bbox"]) == TYPE_ARRAY and (d["bbox"] as Array).size() >= 4:
+		var a: Array = d["bbox"]
+		return [float(a[0]), float(a[1]), float(a[2]), float(a[3])]
 	var b: Dictionary = d
 	if typeof(d.get("bounds", null)) == TYPE_DICTIONARY:
 		b = d["bounds"]
-	var west := float(b.get("west", b.get("min_lon", b.get("lon_min", geo_origin_lon))))
-	var east := float(b.get("east", b.get("max_lon", b.get("lon_max", west + 50.0))))
-	var north := float(b.get("north", b.get("max_lat", b.get("lat_max", geo_origin_lat))))
-	geo_origin_lon = west
-	geo_origin_lat = north
-	var span := maxf(east - west, 0.001)
-	# Fit a ~1600px-wide map; WorldMap camera then frames map_bounds().
-	geo_px_per_deg = 1600.0 / span
+	return [
+		float(b.get("west", b.get("min_lon", b.get("lon_min", -10.0)))),
+		float(b.get("south", b.get("min_lat", b.get("lat_min", 28.0)))),
+		float(b.get("east", b.get("max_lon", b.get("lon_max", 42.0)))),
+		float(b.get("north", b.get("max_lat", b.get("lat_max", 47.0)))),
+	]
+
+
+func _apply_overlay_meta(path: String) -> void:
+	var parsed: Variant = _read_json(path)
+	var d: Dictionary = parsed if typeof(parsed) == TYPE_DICTIONARY else {}
+	var box := _overlay_bbox(d)
+	geo_origin_lon = float(box[0])
+	geo_origin_lat = float(box[3])
+	var span := maxf(float(box[2]) - float(box[0]), 0.001)
+	var tex: Variant = d.get("texture_size", [1024, 374])
+	var tex_w := 1024.0
+	if typeof(tex) == TYPE_ARRAY and (tex as Array).size() >= 1:
+		tex_w = float(tex[0])
+	geo_px_per_deg = tex_w / span
 
 
 func _load_overlay_png(folder: String, fname: String, kind: String) -> void:
@@ -428,21 +448,11 @@ func _load_overlay_png(folder: String, fname: String, kind: String) -> void:
 	var tex := ImageTexture.create_from_image(img)
 	if tex == null:
 		return
-	var nw := lonlat_to_world(geo_origin_lon, geo_origin_lat)
-	# Raster covers the same lon/lat box as meta (or current stub box).
-	var se := lonlat_to_world(geo_origin_lon + 1600.0 / maxf(geo_px_per_deg, 0.001), geo_origin_lat - (float(img.get_height()) / maxf(float(img.get_width()), 1.0)) * (1600.0 / maxf(geo_px_per_deg, 0.001)))
 	var parsed: Variant = _read_json("%s/meta.json" % folder)
-	if typeof(parsed) == TYPE_DICTIONARY:
-		var d: Dictionary = parsed
-		var b: Dictionary = d
-		if typeof(d.get("bounds", null)) == TYPE_DICTIONARY:
-			b = d["bounds"]
-		var west := float(b.get("west", b.get("min_lon", b.get("lon_min", geo_origin_lon))))
-		var east := float(b.get("east", b.get("max_lon", b.get("lon_max", west + 50.0))))
-		var south := float(b.get("south", b.get("min_lat", b.get("lat_min", 28.0))))
-		var north := float(b.get("north", b.get("max_lat", b.get("lat_max", geo_origin_lat))))
-		nw = lonlat_to_world(west, north)
-		se = lonlat_to_world(east, south)
+	var d: Dictionary = parsed if typeof(parsed) == TYPE_DICTIONARY else {}
+	var box := _overlay_bbox(d)
+	var nw := lonlat_to_world(float(box[0]), float(box[3]))
+	var se := lonlat_to_world(float(box[2]), float(box[1]))
 	overlay_rasters.append({
 		"kind": kind,
 		"texture": tex,
@@ -488,14 +498,56 @@ func _ingest_geojson(path: String, default_kind: String = "") -> void:
 				kind = "coastline"
 			else:
 				kind = "territory"
+		var name := str(props.get("name", props.get("NAME", props.get("NAME_EN", props.get("admin", "")))))
 		var cell_id := str(props.get("cell_id", ""))
-		var name := str(props.get("name", props.get("NAME", props.get("admin", ""))))
+		if cell_id.is_empty():
+			cell_id = _cell_id_for_admin_name(name)
 		overlay_features.append({
 			"kind": kind,
 			"name": name,
 			"cell_id": cell_id,
 			"rings": rings,
 		})
+
+
+func _cell_id_for_admin_name(name: String) -> String:
+	var key := name.strip_edges().to_lower()
+	if key.is_empty():
+		return ""
+	var aliases := {
+		"gibraltar": "c_0_0",
+		"spain": "c_1_0",
+		"andalusia": "c_1_0",
+		"andalucia": "c_1_0",
+		"italy": "c_2_0",
+		"italia": "c_2_0",
+		"greece": "c_3_0",
+		"hellas": "c_3_0",
+		"turkey": "c_4_0",
+		"anatolia": "c_4_0",
+		"türkiye": "c_4_0",
+		"turkiye": "c_4_0",
+		"egypt": "c_5_0",
+		"suez": "c_5_0",
+		"algeria": "c_1_1",
+		"morocco": "c_1_1",
+		"tunisia": "c_1_1",
+		"maghreb": "c_1_1",
+		"libya": "c_1_1",
+		"syria": "c_4_1",
+		"lebanon": "c_4_1",
+		"israel": "c_4_1",
+		"levant": "c_4_1",
+		"palestine": "c_4_1",
+		"jordan": "c_4_1",
+	}
+	if aliases.has(key):
+		return str(aliases[key])
+	for cid in cells.keys():
+		var cell: Dictionary = cells[cid]
+		if str(cell.get("name", "")).to_lower() == key:
+			return str(cid)
+	return ""
 
 
 func _geojson_rings(geom: Dictionary) -> Array:
