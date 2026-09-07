@@ -37,9 +37,12 @@ var lanes: Array = [] ## normalized shipping_graph.edges
 var hex_size_px: float = HEX_SIZE_STUB
 var loaded: bool = false
 
-## Lon/lat paint (Terra overlays under data/theaters/<id>/overlays/*.geojson).
-## World draw space is equirectangular, not axial hexes.
+## Lon/lat paint. Prefer Terra bake under overlays/ when present:
+## land_fill.png, ocean.png, meta.json (EPSG:4326 bounds), coastline + admin GeoJSON.
+## TODO: swap stub coastline.geojson / territories.geojson once Terra lands those files.
 var overlay_features: Array = [] ## [{kind, name, cell_id, rings:[PackedVector2Array]}]
+var overlay_rasters: Array = [] ## [{kind, texture, rect}]
+var overlay_source: String = "stub" ## "terra" | "stub"
 var geo_origin_lon: float = -10.0
 var geo_origin_lat: float = 47.5
 var geo_px_per_deg: float = 34.0
@@ -288,7 +291,18 @@ func map_bounds() -> Rect2:
 	var have := false
 	var min_p := Vector2.ZERO
 	var max_p := Vector2.ZERO
-	if use_geo_world and not overlay_features.is_empty():
+	if use_geo_world:
+		for rast in overlay_rasters:
+			var rr: Rect2 = rast.get("rect", Rect2())
+			if rr.size == Vector2.ZERO:
+				continue
+			if not have:
+				min_p = rr.position
+				max_p = rr.position + rr.size
+				have = true
+			else:
+				min_p = Vector2(minf(min_p.x, rr.position.x), minf(min_p.y, rr.position.y))
+				max_p = Vector2(maxf(max_p.x, rr.end.x), maxf(max_p.y, rr.end.y))
 		for feat in overlay_features:
 			for ring in feat.get("rings", []):
 				for p in ring:
@@ -331,12 +345,45 @@ func _apply_default_hex_size() -> void:
 
 func _load_overlays(dir_name: String) -> void:
 	overlay_features.clear()
-	var dirs: PackedStringArray = [
+	overlay_rasters.clear()
+	overlay_source = "stub"
+	var folders: PackedStringArray = [
 		"%s/%s/overlays" % [THEATERS_ROOT, dir_name],
 		"%s/med_v0/overlays" % THEATERS_ROOT,
 	]
+	for folder in folders:
+		if _load_terra_overlays(folder):
+			overlay_source = "terra"
+			break
+	if overlay_source != "terra":
+		_load_stub_overlays(folders)
+	use_geo_world = not overlay_features.is_empty() or not overlay_rasters.is_empty()
+	if not use_geo_world:
+		use_geo_world = _cells_have_centroids()
+
+
+func _load_terra_overlays(folder: String) -> bool:
+	var meta_path := "%s/meta.json" % folder
+	var has_meta := FileAccess.file_exists(meta_path)
+	var has_png := FileAccess.file_exists("%s/land_fill.png" % folder) or FileAccess.file_exists("%s/ocean.png" % folder)
+	var has_admin := FileAccess.file_exists("%s/admin.geojson" % folder)
+	if not has_meta and not has_png and not has_admin:
+		return false
+	if has_meta:
+		_apply_overlay_meta(meta_path)
+	_load_overlay_png(folder, "ocean.png", "ocean")
+	_load_overlay_png(folder, "land_fill.png", "land")
+	if FileAccess.file_exists("%s/coastline.geojson" % folder):
+		_ingest_geojson("%s/coastline.geojson" % folder, "coastline")
+	if has_admin:
+		_ingest_geojson("%s/admin.geojson" % folder, "territory")
+	return not overlay_features.is_empty() or not overlay_rasters.is_empty()
+
+
+func _load_stub_overlays(folders: PackedStringArray) -> void:
+	## TODO: delete stub path after Terra land_fill/ocean/meta/admin land in overlays/.
 	var seen := {}
-	for folder in dirs:
+	for folder in folders:
 		var dir := DirAccess.open(folder)
 		if dir == null:
 			continue
@@ -344,13 +391,63 @@ func _load_overlays(dir_name: String) -> void:
 		var fname := dir.get_next()
 		while fname != "":
 			if not dir.current_is_dir() and fname.ends_with(".geojson") and not seen.has(fname):
+				if fname == "admin.geojson":
+					fname = dir.get_next()
+					continue
 				seen[fname] = true
-				_ingest_geojson("%s/%s" % [folder, fname])
+				_ingest_geojson("%s/%s" % [folder, fname], "")
 			fname = dir.get_next()
 		dir.list_dir_end()
-	use_geo_world = not overlay_features.is_empty()
-	if overlay_features.is_empty():
-		use_geo_world = _cells_have_centroids()
+
+
+func _apply_overlay_meta(path: String) -> void:
+	var parsed: Variant = _read_json(path)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return
+	var d: Dictionary = parsed
+	var b: Dictionary = d
+	if typeof(d.get("bounds", null)) == TYPE_DICTIONARY:
+		b = d["bounds"]
+	var west := float(b.get("west", b.get("min_lon", b.get("lon_min", geo_origin_lon))))
+	var east := float(b.get("east", b.get("max_lon", b.get("lon_max", west + 50.0))))
+	var north := float(b.get("north", b.get("max_lat", b.get("lat_max", geo_origin_lat))))
+	geo_origin_lon = west
+	geo_origin_lat = north
+	var span := maxf(east - west, 0.001)
+	# Fit a ~1600px-wide map; WorldMap camera then frames map_bounds().
+	geo_px_per_deg = 1600.0 / span
+
+
+func _load_overlay_png(folder: String, fname: String, kind: String) -> void:
+	var path := "%s/%s" % [folder, fname]
+	if not FileAccess.file_exists(path):
+		return
+	var img := Image.new()
+	if img.load(path) != OK:
+		return
+	var tex := ImageTexture.create_from_image(img)
+	if tex == null:
+		return
+	var nw := lonlat_to_world(geo_origin_lon, geo_origin_lat)
+	# Raster covers the same lon/lat box as meta (or current stub box).
+	var se := lonlat_to_world(geo_origin_lon + 1600.0 / maxf(geo_px_per_deg, 0.001), geo_origin_lat - (float(img.get_height()) / maxf(float(img.get_width()), 1.0)) * (1600.0 / maxf(geo_px_per_deg, 0.001)))
+	var parsed: Variant = _read_json("%s/meta.json" % folder)
+	if typeof(parsed) == TYPE_DICTIONARY:
+		var d: Dictionary = parsed
+		var b: Dictionary = d
+		if typeof(d.get("bounds", null)) == TYPE_DICTIONARY:
+			b = d["bounds"]
+		var west := float(b.get("west", b.get("min_lon", b.get("lon_min", geo_origin_lon))))
+		var east := float(b.get("east", b.get("max_lon", b.get("lon_max", west + 50.0))))
+		var south := float(b.get("south", b.get("min_lat", b.get("lat_min", 28.0))))
+		var north := float(b.get("north", b.get("max_lat", b.get("lat_max", geo_origin_lat))))
+		nw = lonlat_to_world(west, north)
+		se = lonlat_to_world(east, south)
+	overlay_rasters.append({
+		"kind": kind,
+		"texture": tex,
+		"rect": Rect2(nw, se - nw),
+	})
 
 
 func _cells_have_centroids() -> bool:
@@ -361,13 +458,14 @@ func _cells_have_centroids() -> bool:
 	return false
 
 
-func _ingest_geojson(path: String) -> void:
+func _ingest_geojson(path: String, default_kind: String = "") -> void:
 	var parsed: Variant = _read_json(path)
 	if typeof(parsed) != TYPE_DICTIONARY:
 		return
 	var feats: Array = parsed.get("features", [])
 	if typeof(feats) != TYPE_ARRAY:
 		return
+	var fname := path.get_file().to_lower()
 	for raw in feats:
 		if typeof(raw) != TYPE_DICTIONARY:
 			continue
@@ -380,10 +478,22 @@ func _ingest_geojson(path: String) -> void:
 		var rings := _geojson_rings(geom)
 		if rings.is_empty():
 			continue
+		var kind := str(props.get("kind", ""))
+		if kind.is_empty():
+			kind = default_kind
+		if kind.is_empty():
+			if fname.contains("admin"):
+				kind = "territory"
+			elif fname.contains("coast"):
+				kind = "coastline"
+			else:
+				kind = "territory"
+		var cell_id := str(props.get("cell_id", ""))
+		var name := str(props.get("name", props.get("NAME", props.get("admin", ""))))
 		overlay_features.append({
-			"kind": str(props.get("kind", "territory")),
-			"name": str(props.get("name", "")),
-			"cell_id": str(props.get("cell_id", "")),
+			"kind": kind,
+			"name": name,
+			"cell_id": cell_id,
 			"rings": rings,
 		})
 
@@ -392,7 +502,16 @@ func _geojson_rings(geom: Dictionary) -> Array:
 	var out: Array = []
 	var gtype := str(geom.get("type", ""))
 	var coords: Variant = geom.get("coordinates", [])
-	if gtype == "Polygon" and typeof(coords) == TYPE_ARRAY:
+	if gtype == "LineString" and typeof(coords) == TYPE_ARRAY:
+		var line := _lonlat_ring(coords)
+		if line.size() >= 2:
+			out.append(line)
+	elif gtype == "MultiLineString" and typeof(coords) == TYPE_ARRAY:
+		for line_coords in coords:
+			var line := _lonlat_ring(line_coords)
+			if line.size() >= 2:
+				out.append(line)
+	elif gtype == "Polygon" and typeof(coords) == TYPE_ARRAY:
 		for ring in coords:
 			var pts := _lonlat_ring(ring)
 			if pts.size() >= 3:

@@ -35,8 +35,9 @@ func _run() -> void:
 		quit(1)
 		return
 	world.queue_redraw()
-	print("SCENE_CHECK_OK overlays=%d geo=%s" % [
+	print("SCENE_CHECK_OK overlays=%d geo=%s source=%s" % [
 		int(ms.get("overlay_features").size()),
 		str(ms.get("use_geo_world")),
+		str(ms.get("overlay_source")),
 	])
 	quit(0)

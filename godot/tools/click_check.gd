@@ -86,8 +86,9 @@ func _run() -> void:
 		quit(1)
 		return
 
-	print("CLICK_CHECK_OK overlays=%d picked=c_0_0 moved=c_1_0 zoom=%.3f" % [
+	print("CLICK_CHECK_OK overlays=%d source=%s picked=c_0_0 moved=c_1_0 zoom=%.3f" % [
 		int(ms.get("overlay_features").size()),
+		str(ms.get("overlay_source")),
 		z,
 	])
 	quit(0)

@@ -205,15 +205,26 @@ func _draw() -> void:
 
 
 func _draw_painted_map() -> void:
-	for feat in MapService.overlays_of_kind("sea"):
-		_fill_feature(feat, SEA)
-	for feat in MapService.overlays_of_kind("land"):
-		_fill_feature(feat, LAND)
-		_stroke_feature(feat, Color("#d8c4a0"), 1.8)
+	# Terra rasters (ocean.png / land_fill.png) win when present.
+	if not MapService.overlay_rasters.is_empty():
+		for rast in MapService.overlay_rasters:
+			var tex: Texture2D = rast.get("texture", null)
+			var rr: Rect2 = rast.get("rect", Rect2())
+			if tex != null and rr.size != Vector2.ZERO:
+				draw_texture_rect(tex, rr, false)
+	else:
+		for feat in MapService.overlays_of_kind("sea"):
+			_fill_feature(feat, SEA)
+		for feat in MapService.overlays_of_kind("land"):
+			_fill_feature(feat, LAND)
+			_stroke_feature(feat, Color("#d8c4a0"), 1.8)
 	for feat in MapService.overlays_of_kind("territory"):
 		_draw_territory(feat)
-	for feat in MapService.overlays_of_kind("land"):
-		_stroke_feature(feat, COAST, 1.5)
+	for feat in MapService.overlays_of_kind("coastline"):
+		_stroke_feature(feat, COAST, 1.8)
+	if MapService.overlay_rasters.is_empty():
+		for feat in MapService.overlays_of_kind("land"):
+			_stroke_feature(feat, COAST, 1.5)
 
 
 func _draw_territory(feat: Dictionary) -> void:
