@@ -53,3 +53,55 @@ func mobility_mult(kind: String = "none") -> float:
 
 func tick_sec() -> float:
 	return float(data.get("tick_sec", 1.0))
+
+
+func annex_cfg() -> Dictionary:
+	return data.get("annex", {})
+
+
+func supply_cfg() -> Dictionary:
+	return data.get("supply", {})
+
+
+func supply_per_land() -> float:
+	return float(supply_cfg().get("per_land", 1))
+
+
+func supply_per_factory() -> float:
+	return float(supply_cfg().get("per_factory", 8))
+
+
+func supply_trade(state: String) -> float:
+	var st: Dictionary = data.get("supply_trade", {})
+	if st.has(state):
+		return float(st[state])
+	return 0.0
+
+
+func sea_transit_sec(state: String) -> Variant:
+	var sea: Dictionary = data.get("sea_transit_sec", {})
+	if not sea.has(state):
+		return null
+	return sea[state]
+
+
+func building_def(kind: String) -> Dictionary:
+	var buildings: Dictionary = data.get("buildings", {})
+	return buildings.get(kind, {})
+
+
+func building_cost(kind: String) -> int:
+	return int(building_def(kind).get("cost", 0))
+
+
+func building_ticks(kind: String) -> int:
+	return int(building_def(kind).get("build_ticks", 1))
+
+
+func lane_control() -> Dictionary:
+	return data.get("lane_control", {})
+
+
+func win_land_control() -> float:
+	var w: Dictionary = data.get("win", {})
+	return float(w.get("land_control", 0.7))

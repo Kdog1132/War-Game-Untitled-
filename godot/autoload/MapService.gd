@@ -37,6 +37,17 @@ var lanes: Array = [] ## normalized shipping_graph.edges
 var hex_size_px: float = HEX_SIZE_STUB
 var loaded: bool = false
 
+## Lon/lat paint. Prefer Terra bake under overlays/ when present:
+## land_fill.png, ocean.png, meta.json (EPSG:4326 bounds), coastline + admin GeoJSON.
+## Paint prefers admin_regions_slice1.geojson (8 regions).
+var overlay_features: Array = [] ## [{kind, name, cell_id, rings:[PackedVector2Array]}]
+var overlay_rasters: Array = [] ## [{kind, texture, rect}]
+var overlay_source: String = "stub" ## "terra" | "stub"
+var geo_origin_lon: float = -10.0
+var geo_origin_lat: float = 47.5
+var geo_px_per_deg: float = 34.0
+var use_geo_world: bool = true
+
 
 func load_theater(dir_name: String) -> bool:
 	var base := "%s/%s" % [THEATERS_ROOT, dir_name]
@@ -63,6 +74,7 @@ func load_theater(dir_name: String) -> bool:
 	_normalize_lanes()
 	_resolve_ownership()
 	_apply_default_hex_size()
+	_load_overlays(dir_name)
 
 	loaded = true
 	theater_loaded.emit(theater_id)
@@ -81,7 +93,11 @@ func get_cell_at(axial: Vector2i) -> Dictionary:
 
 
 ## Cell ownership. Never name this get_owner — that shadows Node.get_owner.
+## Runtime source of truth is OwnershipService when that autoload is present.
 func get_cell_owner(cell_id: String) -> String:
+	var os := _ownership()
+	if os != null and os.has_method("get_cell_owner"):
+		return str(os.call("get_cell_owner", cell_id))
 	if cell_owners.has(cell_id):
 		return str(cell_owners[cell_id])
 	var cell: Dictionary = get_cell(cell_id)
@@ -89,8 +105,13 @@ func get_cell_owner(cell_id: String) -> String:
 
 
 func set_cell_owner(cell_id: String, owner: String) -> void:
-	if cells.has(cell_id):
-		cell_owners[cell_id] = owner
+	if not cells.has(cell_id):
+		return
+	var os := _ownership()
+	if os != null and os.has_method("set_cell_owner"):
+		os.call("set_cell_owner", cell_id, owner)
+		return
+	cell_owners[cell_id] = owner
 
 
 func neighbors(cell_id: String) -> Array:
@@ -99,6 +120,10 @@ func neighbors(cell_id: String) -> Array:
 
 func get_port(port_id: String) -> Dictionary:
 	return ports.get(port_id, {})
+
+
+func _ownership() -> Node:
+	return get_node_or_null("/root/OwnershipService")
 
 
 func harbor_cell_id(harbor_node_id: String) -> String:
@@ -139,25 +164,170 @@ func cell_world_pos(cell_id: String) -> Vector2:
 	var cell: Dictionary = get_cell(cell_id)
 	if cell.is_empty():
 		return Vector2.ZERO
+	if use_geo_world:
+		var c: Variant = cell.get("centroid", {})
+		if typeof(c) == TYPE_DICTIONARY:
+			return lonlat_to_world(float(c.get("lon", 0.0)), float(c.get("lat", 0.0)))
 	return axial_to_world(int(cell.get("q", 0)), int(cell.get("r", 0)))
+
+
+func cell_axial(cell_id: String) -> Vector2i:
+	var cell: Dictionary = get_cell(cell_id)
+	return Vector2i(int(cell.get("q", 0)), int(cell.get("r", 0)))
+
+
+func lonlat_to_world(lon: float, lat: float) -> Vector2:
+	return Vector2((lon - geo_origin_lon) * geo_px_per_deg, (geo_origin_lat - lat) * geo_px_per_deg)
+
+
+func world_to_lonlat(world: Vector2) -> Vector2:
+	var s := maxf(geo_px_per_deg, 0.0001)
+	return Vector2(world.x / s + geo_origin_lon, geo_origin_lat - world.y / s)
+
+
+## Viewport/screen pixels → Node2D draw space after Camera2D pan/zoom.
+## Do not treat event.position or raw viewport coords as map coords.
+func screen_to_world(screen: Vector2, cam_pos: Vector2, cam_zoom: Vector2, viewport_size: Vector2) -> Vector2:
+	var z := Vector2(maxf(cam_zoom.x, 0.0001), maxf(cam_zoom.y, 0.0001))
+	var centered := screen - viewport_size * 0.5
+	return cam_pos + Vector2(centered.x / z.x, centered.y / z.y)
+
+
+func cell_id_at_world(world: Vector2) -> String:
+	if use_geo_world:
+		var territory := territory_id_at_world(world)
+		if not territory.is_empty() and cells.has(territory):
+			return territory
+		return nearest_cell_at_world(world)
+	return str(cells_by_axial.get(world_to_axial(world), ""))
+
+
+func territory_id_at_world(world: Vector2) -> String:
+	for feat in overlay_features:
+		if str(feat.get("kind", "")) != "territory":
+			continue
+		if _point_in_feature(world, feat):
+			return str(feat.get("cell_id", ""))
+	return ""
+
+
+func nearest_cell_at_world(world: Vector2, max_dist: float = -1.0) -> String:
+	var best := ""
+	var best_d := INF
+	var limit := max_dist
+	if limit < 0.0:
+		limit = geo_px_per_deg * 2.4
+	for cid in cells.keys():
+		var d := world.distance_to(cell_world_pos(str(cid)))
+		if d < best_d:
+			best_d = d
+			best = str(cid)
+	if best_d > limit:
+		return ""
+	return best
+
+
+func territory_feature_for_cell(cell_id: String) -> Dictionary:
+	if cell_id.is_empty():
+		return {}
+	for feat in overlay_features:
+		if str(feat.get("kind", "")) == "territory" and str(feat.get("cell_id", "")) == cell_id:
+			return feat
+	var pos := cell_world_pos(cell_id)
+	for feat in overlay_features:
+		if str(feat.get("kind", "")) != "territory":
+			continue
+		if _point_in_feature(pos, feat):
+			return feat
+	return {}
+
+
+func overlays_of_kind(kind: String) -> Array:
+	var out: Array = []
+	for feat in overlay_features:
+		if str(feat.get("kind", "")) == kind:
+			out.append(feat)
+	return out
+
+
+func _point_in_feature(world: Vector2, feat: Dictionary) -> bool:
+	var rings: Array = feat.get("rings", [])
+	if rings.is_empty():
+		return false
+	if not _point_in_ring(world, rings[0]):
+		return false
+	for i in range(1, rings.size()):
+		if _point_in_ring(world, rings[i]):
+			return false
+	return true
+
+
+func _point_in_ring(world: Vector2, ring: PackedVector2Array) -> bool:
+	var inside := false
+	var j := ring.size() - 1
+	for i in range(ring.size()):
+		var a: Vector2 = ring[i]
+		var b: Vector2 = ring[j]
+		var intersect := ((a.y > world.y) != (b.y > world.y)) and (
+			world.x < (b.x - a.x) * (world.y - a.y) / ((b.y - a.y) if absf(b.y - a.y) > 0.000001 else 0.000001) + a.x
+		)
+		if intersect:
+			inside = not inside
+		j = i
+	return inside
+
+
+func hex_distance(a_id: String, b_id: String) -> int:
+	return hex_distance_axial(cell_axial(a_id), cell_axial(b_id))
+
+
+func hex_distance_axial(a: Vector2i, b: Vector2i) -> int:
+	var dq := a.x - b.x
+	var dr := a.y - b.y
+	return int((absi(dq) + absi(dr) + absi(dq + dr)) / 2)
 
 
 func map_bounds() -> Rect2:
 	var have := false
 	var min_p := Vector2.ZERO
 	var max_p := Vector2.ZERO
-	for cell in cells.values():
-		var p := axial_to_world(int(cell.get("q", 0)), int(cell.get("r", 0)))
-		if not have:
-			min_p = p
-			max_p = p
-			have = true
-		else:
-			min_p = Vector2(minf(min_p.x, p.x), minf(min_p.y, p.y))
-			max_p = Vector2(maxf(max_p.x, p.x), maxf(max_p.y, p.y))
+	if use_geo_world:
+		for rast in overlay_rasters:
+			var rr: Rect2 = rast.get("rect", Rect2())
+			if rr.size == Vector2.ZERO:
+				continue
+			if not have:
+				min_p = rr.position
+				max_p = rr.position + rr.size
+				have = true
+			else:
+				min_p = Vector2(minf(min_p.x, rr.position.x), minf(min_p.y, rr.position.y))
+				max_p = Vector2(maxf(max_p.x, rr.end.x), maxf(max_p.y, rr.end.y))
+		for feat in overlay_features:
+			for ring in feat.get("rings", []):
+				for p in ring:
+					if not have:
+						min_p = p
+						max_p = p
+						have = true
+					else:
+						min_p = Vector2(minf(min_p.x, p.x), minf(min_p.y, p.y))
+						max_p = Vector2(maxf(max_p.x, p.x), maxf(max_p.y, p.y))
+	if not have:
+		for cell in cells.values():
+			var cid := str(cell.get("cell_id", ""))
+			var p := cell_world_pos(cid) if not cid.is_empty() else axial_to_world(int(cell.get("q", 0)), int(cell.get("r", 0)))
+			if not have:
+				min_p = p
+				max_p = p
+				have = true
+			else:
+				min_p = Vector2(minf(min_p.x, p.x), minf(min_p.y, p.y))
+				max_p = Vector2(maxf(max_p.x, p.x), maxf(max_p.y, p.y))
 	if not have:
 		return Rect2(Vector2.ZERO, Vector2.ONE)
-	var pad := Vector2(hex_size_px * 2.0, hex_size_px * 2.0)
+	var pad_s := geo_px_per_deg * 1.2 if use_geo_world else hex_size_px * 2.0
+	var pad := Vector2(pad_s, pad_s)
 	return Rect2(min_p - pad, (max_p - min_p) + pad * 2.0)
 
 
@@ -171,6 +341,259 @@ func suggested_hex_size(dir_name: String = theater_id) -> float:
 
 func _apply_default_hex_size() -> void:
 	hex_size_px = suggested_hex_size(theater_id)
+
+
+func _load_overlays(dir_name: String) -> void:
+	overlay_features.clear()
+	overlay_rasters.clear()
+	overlay_source = "stub"
+	var folders: PackedStringArray = [
+		"%s/%s/overlays" % [THEATERS_ROOT, dir_name],
+		"%s/med_v0/overlays" % THEATERS_ROOT,
+	]
+	for folder in folders:
+		if _load_terra_overlays(folder):
+			overlay_source = "terra"
+			break
+	if overlay_source != "terra":
+		_load_stub_overlays(folders)
+	use_geo_world = not overlay_features.is_empty() or not overlay_rasters.is_empty()
+	if not use_geo_world:
+		use_geo_world = _cells_have_centroids()
+
+
+func _load_terra_overlays(folder: String) -> bool:
+	var slice := "%s/admin_regions_slice1.geojson" % folder
+	var full := "%s/admin_regions.geojson" % folder
+	var legacy := "%s/admin.geojson" % folder
+	var has_png := FileAccess.file_exists("%s/land_fill.png" % folder) or FileAccess.file_exists("%s/ocean.png" % folder)
+	var has_admin := FileAccess.file_exists(slice) or FileAccess.file_exists(full) or FileAccess.file_exists(legacy)
+	# meta.json alone is not a Terra pack (stub folder already has it).
+	if not has_png and not has_admin:
+		return false
+	_apply_overlay_meta("%s/meta.json" % folder)
+	_load_overlay_png(folder, "ocean.png", "ocean")
+	_load_overlay_png(folder, "land_fill.png", "land")
+	if FileAccess.file_exists("%s/coastline.geojson" % folder) and has_png:
+		_ingest_geojson("%s/coastline.geojson" % folder, "coastline")
+	# Spike: slice1 (8) first; full 19-country admin_regions only if slice1 is missing.
+	var stub_admin := "%s/territories.geojson" % folder
+	if FileAccess.file_exists(slice):
+		_ingest_geojson(slice, "territory")
+	elif FileAccess.file_exists(full):
+		_ingest_geojson(full, "territory")
+	elif FileAccess.file_exists(legacy):
+		_ingest_geojson(legacy, "territory")
+	elif FileAccess.file_exists(stub_admin):
+		_ingest_geojson(stub_admin, "territory")
+	if FileAccess.file_exists("%s/admin_borders.geojson" % folder):
+		_ingest_geojson("%s/admin_borders.geojson" % folder, "border")
+	return not overlay_features.is_empty() or not overlay_rasters.is_empty()
+
+
+func _load_stub_overlays(folders: PackedStringArray) -> void:
+	## TODO: delete stub path after Terra land_fill/ocean/meta/admin land in overlays/.
+	var seen := {}
+	for folder in folders:
+		var dir := DirAccess.open(folder)
+		if dir == null:
+			continue
+		dir.list_dir_begin()
+		var fname := dir.get_next()
+		while fname != "":
+			if not dir.current_is_dir() and fname.ends_with(".geojson") and not seen.has(fname):
+				if fname.begins_with("admin"):
+					fname = dir.get_next()
+					continue
+				seen[fname] = true
+				_ingest_geojson("%s/%s" % [folder, fname], "")
+			fname = dir.get_next()
+		dir.list_dir_end()
+
+
+func _overlay_bbox(d: Dictionary) -> Array:
+	## EPSG:4326 [west, south, east, north]. Default Terra Med box.
+	if d.has("bbox") and typeof(d["bbox"]) == TYPE_ARRAY and (d["bbox"] as Array).size() >= 4:
+		var a: Array = d["bbox"]
+		return [float(a[0]), float(a[1]), float(a[2]), float(a[3])]
+	var b: Dictionary = d
+	if typeof(d.get("bounds", null)) == TYPE_DICTIONARY:
+		b = d["bounds"]
+	return [
+		float(b.get("west", b.get("min_lon", b.get("lon_min", -10.0)))),
+		float(b.get("south", b.get("min_lat", b.get("lat_min", 28.0)))),
+		float(b.get("east", b.get("max_lon", b.get("lon_max", 42.0)))),
+		float(b.get("north", b.get("max_lat", b.get("lat_max", 47.0)))),
+	]
+
+
+func _apply_overlay_meta(path: String) -> void:
+	var parsed: Variant = _read_json(path)
+	var d: Dictionary = parsed if typeof(parsed) == TYPE_DICTIONARY else {}
+	var box := _overlay_bbox(d)
+	geo_origin_lon = float(box[0])
+	geo_origin_lat = float(box[3])
+	var span := maxf(float(box[2]) - float(box[0]), 0.001)
+	var tex: Variant = d.get("texture_size", [1024, 374])
+	var tex_w := 1024.0
+	if typeof(tex) == TYPE_ARRAY and (tex as Array).size() >= 1:
+		tex_w = float(tex[0])
+	geo_px_per_deg = tex_w / span
+
+
+func _load_overlay_png(folder: String, fname: String, kind: String) -> void:
+	var path := "%s/%s" % [folder, fname]
+	if not FileAccess.file_exists(path):
+		return
+	var img := Image.new()
+	if img.load(path) != OK:
+		return
+	var tex := ImageTexture.create_from_image(img)
+	if tex == null:
+		return
+	var parsed: Variant = _read_json("%s/meta.json" % folder)
+	var d: Dictionary = parsed if typeof(parsed) == TYPE_DICTIONARY else {}
+	var box := _overlay_bbox(d)
+	var nw := lonlat_to_world(float(box[0]), float(box[3]))
+	var se := lonlat_to_world(float(box[2]), float(box[1]))
+	overlay_rasters.append({
+		"kind": kind,
+		"texture": tex,
+		"rect": Rect2(nw, se - nw),
+	})
+
+
+func _cells_have_centroids() -> bool:
+	for cell in cells.values():
+		var c: Variant = cell.get("centroid", {})
+		if typeof(c) == TYPE_DICTIONARY and (c.has("lon") or c.has("lat")):
+			return true
+	return false
+
+
+func _ingest_geojson(path: String, default_kind: String = "") -> void:
+	var parsed: Variant = _read_json(path)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return
+	var feats: Array = parsed.get("features", [])
+	if typeof(feats) != TYPE_ARRAY:
+		return
+	var fname := path.get_file().to_lower()
+	for raw in feats:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var props: Dictionary = raw.get("properties", {})
+		if typeof(props) != TYPE_DICTIONARY:
+			props = {}
+		var geom: Dictionary = raw.get("geometry", {})
+		if typeof(geom) != TYPE_DICTIONARY:
+			continue
+		var rings := _geojson_rings(geom)
+		if rings.is_empty():
+			continue
+		var kind := str(props.get("kind", ""))
+		if kind.is_empty():
+			kind = default_kind
+		if kind.is_empty():
+			if fname.contains("admin"):
+				kind = "territory"
+			elif fname.contains("coast"):
+				kind = "coastline"
+			else:
+				kind = "territory"
+		var name := str(props.get("name", props.get("NAME", props.get("NAME_EN", props.get("admin", "")))))
+		var cell_id := str(props.get("cell_id", ""))
+		if cell_id.is_empty():
+			cell_id = _cell_id_for_admin_name(name)
+		overlay_features.append({
+			"kind": kind,
+			"name": name,
+			"cell_id": cell_id,
+			"rings": rings,
+		})
+
+
+func _cell_id_for_admin_name(name: String) -> String:
+	var key := name.strip_edges().to_lower()
+	if key.is_empty():
+		return ""
+	var aliases := {
+		"gibraltar": "c_0_0",
+		"spain": "c_1_0",
+		"andalusia": "c_1_0",
+		"andalucia": "c_1_0",
+		"italy": "c_2_0",
+		"italia": "c_2_0",
+		"greece": "c_3_0",
+		"hellas": "c_3_0",
+		"turkey": "c_4_0",
+		"anatolia": "c_4_0",
+		"türkiye": "c_4_0",
+		"turkiye": "c_4_0",
+		"egypt": "c_5_0",
+		"suez": "c_5_0",
+		"algeria": "c_1_1",
+		"morocco": "c_1_1",
+		"tunisia": "c_1_1",
+		"maghreb": "c_1_1",
+		"libya": "c_1_1",
+		"syria": "c_4_1",
+		"lebanon": "c_4_1",
+		"israel": "c_4_1",
+		"levant": "c_4_1",
+		"palestine": "c_4_1",
+		"jordan": "c_4_1",
+	}
+	if aliases.has(key):
+		return str(aliases[key])
+	for cid in cells.keys():
+		var cell: Dictionary = cells[cid]
+		if str(cell.get("name", "")).to_lower() == key:
+			return str(cid)
+	return ""
+
+
+func _geojson_rings(geom: Dictionary) -> Array:
+	var out: Array = []
+	var gtype := str(geom.get("type", ""))
+	var coords: Variant = geom.get("coordinates", [])
+	if gtype == "LineString" and typeof(coords) == TYPE_ARRAY:
+		var line := _lonlat_ring(coords)
+		if line.size() >= 2:
+			out.append(line)
+	elif gtype == "MultiLineString" and typeof(coords) == TYPE_ARRAY:
+		for line_coords in coords:
+			var line := _lonlat_ring(line_coords)
+			if line.size() >= 2:
+				out.append(line)
+	elif gtype == "Polygon" and typeof(coords) == TYPE_ARRAY:
+		for ring in coords:
+			var pts := _lonlat_ring(ring)
+			if pts.size() >= 3:
+				out.append(pts)
+	elif gtype == "MultiPolygon" and typeof(coords) == TYPE_ARRAY:
+		for poly in coords:
+			if typeof(poly) != TYPE_ARRAY:
+				continue
+			for ring in poly:
+				var pts := _lonlat_ring(ring)
+				if pts.size() >= 3:
+					out.append(pts)
+	return out
+
+
+func _lonlat_ring(ring: Variant) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	if typeof(ring) != TYPE_ARRAY:
+		return pts
+	for pair in ring:
+		if typeof(pair) != TYPE_ARRAY or pair.size() < 2:
+			continue
+		pts.append(lonlat_to_world(float(pair[0]), float(pair[1])))
+	# GeoJSON rings repeat the first vertex; Godot triangulation rejects that.
+	if pts.size() >= 2 and pts[0].distance_to(pts[pts.size() - 1]) < 0.001:
+		pts.remove_at(pts.size() - 1)
+	return pts
 
 
 func _load_cells(parsed: Variant) -> void:
@@ -312,6 +735,9 @@ func _resolve_ownership() -> void:
 		if seed_owners.has(cid):
 			owner = _norm_owner(seed_owners[cid])
 		cell_owners[cid] = owner
+	var os := _ownership()
+	if os != null and os.has_method("reset_from_theater"):
+		os.call("reset_from_theater")
 
 
 func _norm_owner(value: Variant) -> String:

@@ -1,0 +1,45 @@
+{
+  "theater_id": "med_v0",
+  "crs": "EPSG:4326",
+  "bbox": [
+    -10,
+    28,
+    42,
+    47
+  ],
+  "style": "real_world_overlays_minimal",
+  "texture_size": [
+    1024,
+    374
+  ],
+  "textures": {
+    "land_fill": {
+      "file": "land_fill.png",
+      "size": [
+        1024,
+        374
+      ]
+    },
+    "ocean": {
+      "file": "ocean.png",
+      "size": [
+        1024,
+        374
+      ]
+    }
+  },
+  "vectors": {
+    "coastline": "coastline.geojson",
+    "admin_regions": "admin_regions.geojson",
+    "admin_regions_slice1": "admin_regions_slice1.geojson",
+    "admin_borders": "admin_borders.geojson"
+  },
+  "counts": {
+    "coastline_verts": 1853,
+    "admin_regions": 19,
+    "admin_region_verts": 1575,
+    "slice1_regions": 8,
+    "admin_border_verts": 1575
+  },
+  "notes": "Minimal Med geo for Atlas. Prefer admin_regions_slice1 (8) for Kaleb Slice 1; full 19 available. No DEM."
+}
