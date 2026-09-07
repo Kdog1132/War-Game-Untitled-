@@ -1,12 +1,32 @@
 {
   "theater_id": "med_v0",
   "crs": "EPSG:4326",
-  "bbox": [-10, 28, 42, 47],
+  "bbox": [
+    -10,
+    28,
+    42,
+    47
+  ],
   "style": "real_world_overlays_minimal",
-  "texture_size": [1024, 374],
+  "texture_size": [
+    1024,
+    374
+  ],
   "textures": {
-    "land_fill": { "file": "land_fill.png", "size": [1024, 374] },
-    "ocean": { "file": "ocean.png", "size": [1024, 374] }
+    "land_fill": {
+      "file": "land_fill.png",
+      "size": [
+        1024,
+        374
+      ]
+    },
+    "ocean": {
+      "file": "ocean.png",
+      "size": [
+        1024,
+        374
+      ]
+    }
   },
   "vectors": {
     "coastline": "coastline.geojson",
