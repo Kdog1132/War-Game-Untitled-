@@ -37,6 +37,14 @@ var lanes: Array = [] ## normalized shipping_graph.edges
 var hex_size_px: float = HEX_SIZE_STUB
 var loaded: bool = false
 
+## Lon/lat paint (Terra overlays under data/theaters/<id>/overlays/*.geojson).
+## World draw space is equirectangular, not axial hexes.
+var overlay_features: Array = [] ## [{kind, name, cell_id, rings:[PackedVector2Array]}]
+var geo_origin_lon: float = -10.0
+var geo_origin_lat: float = 47.5
+var geo_px_per_deg: float = 34.0
+var use_geo_world: bool = true
+
 
 func load_theater(dir_name: String) -> bool:
 	var base := "%s/%s" % [THEATERS_ROOT, dir_name]
@@ -63,6 +71,7 @@ func load_theater(dir_name: String) -> bool:
 	_normalize_lanes()
 	_resolve_ownership()
 	_apply_default_hex_size()
+	_load_overlays(dir_name)
 
 	loaded = true
 	theater_loaded.emit(theater_id)
@@ -152,6 +161,10 @@ func cell_world_pos(cell_id: String) -> Vector2:
 	var cell: Dictionary = get_cell(cell_id)
 	if cell.is_empty():
 		return Vector2.ZERO
+	if use_geo_world:
+		var c: Variant = cell.get("centroid", {})
+		if typeof(c) == TYPE_DICTIONARY:
+			return lonlat_to_world(float(c.get("lon", 0.0)), float(c.get("lat", 0.0)))
 	return axial_to_world(int(cell.get("q", 0)), int(cell.get("r", 0)))
 
 
@@ -160,8 +173,105 @@ func cell_axial(cell_id: String) -> Vector2i:
 	return Vector2i(int(cell.get("q", 0)), int(cell.get("r", 0)))
 
 
+func lonlat_to_world(lon: float, lat: float) -> Vector2:
+	return Vector2((lon - geo_origin_lon) * geo_px_per_deg, (geo_origin_lat - lat) * geo_px_per_deg)
+
+
+func world_to_lonlat(world: Vector2) -> Vector2:
+	var s := maxf(geo_px_per_deg, 0.0001)
+	return Vector2(world.x / s + geo_origin_lon, geo_origin_lat - world.y / s)
+
+
+## Viewport/screen pixels → Node2D draw space after Camera2D pan/zoom.
+## Do not treat event.position or raw viewport coords as map coords.
+func screen_to_world(screen: Vector2, cam_pos: Vector2, cam_zoom: Vector2, viewport_size: Vector2) -> Vector2:
+	var z := Vector2(maxf(cam_zoom.x, 0.0001), maxf(cam_zoom.y, 0.0001))
+	var centered := screen - viewport_size * 0.5
+	return cam_pos + Vector2(centered.x / z.x, centered.y / z.y)
+
+
 func cell_id_at_world(world: Vector2) -> String:
+	if use_geo_world:
+		var territory := territory_id_at_world(world)
+		if not territory.is_empty() and cells.has(territory):
+			return territory
+		return nearest_cell_at_world(world)
 	return str(cells_by_axial.get(world_to_axial(world), ""))
+
+
+func territory_id_at_world(world: Vector2) -> String:
+	for feat in overlay_features:
+		if str(feat.get("kind", "")) != "territory":
+			continue
+		if _point_in_feature(world, feat):
+			return str(feat.get("cell_id", ""))
+	return ""
+
+
+func nearest_cell_at_world(world: Vector2, max_dist: float = -1.0) -> String:
+	var best := ""
+	var best_d := INF
+	var limit := max_dist
+	if limit < 0.0:
+		limit = geo_px_per_deg * 2.4
+	for cid in cells.keys():
+		var d := world.distance_to(cell_world_pos(str(cid)))
+		if d < best_d:
+			best_d = d
+			best = str(cid)
+	if best_d > limit:
+		return ""
+	return best
+
+
+func territory_feature_for_cell(cell_id: String) -> Dictionary:
+	if cell_id.is_empty():
+		return {}
+	for feat in overlay_features:
+		if str(feat.get("kind", "")) == "territory" and str(feat.get("cell_id", "")) == cell_id:
+			return feat
+	var pos := cell_world_pos(cell_id)
+	for feat in overlay_features:
+		if str(feat.get("kind", "")) != "territory":
+			continue
+		if _point_in_feature(pos, feat):
+			return feat
+	return {}
+
+
+func overlays_of_kind(kind: String) -> Array:
+	var out: Array = []
+	for feat in overlay_features:
+		if str(feat.get("kind", "")) == kind:
+			out.append(feat)
+	return out
+
+
+func _point_in_feature(world: Vector2, feat: Dictionary) -> bool:
+	var rings: Array = feat.get("rings", [])
+	if rings.is_empty():
+		return false
+	if not _point_in_ring(world, rings[0]):
+		return false
+	for i in range(1, rings.size()):
+		if _point_in_ring(world, rings[i]):
+			return false
+	return true
+
+
+func _point_in_ring(world: Vector2, ring: PackedVector2Array) -> bool:
+	var inside := false
+	var j := ring.size() - 1
+	for i in range(ring.size()):
+		var a: Vector2 = ring[i]
+		var b: Vector2 = ring[j]
+		var intersect := ((a.y > world.y) != (b.y > world.y)) and (
+			world.x < (b.x - a.x) * (world.y - a.y) / ((b.y - a.y) if absf(b.y - a.y) > 0.000001 else 0.000001) + a.x
+		)
+		if intersect:
+			inside = not inside
+		j = i
+	return inside
 
 
 func hex_distance(a_id: String, b_id: String) -> int:
@@ -178,18 +288,32 @@ func map_bounds() -> Rect2:
 	var have := false
 	var min_p := Vector2.ZERO
 	var max_p := Vector2.ZERO
-	for cell in cells.values():
-		var p := axial_to_world(int(cell.get("q", 0)), int(cell.get("r", 0)))
-		if not have:
-			min_p = p
-			max_p = p
-			have = true
-		else:
-			min_p = Vector2(minf(min_p.x, p.x), minf(min_p.y, p.y))
-			max_p = Vector2(maxf(max_p.x, p.x), maxf(max_p.y, p.y))
+	if use_geo_world and not overlay_features.is_empty():
+		for feat in overlay_features:
+			for ring in feat.get("rings", []):
+				for p in ring:
+					if not have:
+						min_p = p
+						max_p = p
+						have = true
+					else:
+						min_p = Vector2(minf(min_p.x, p.x), minf(min_p.y, p.y))
+						max_p = Vector2(maxf(max_p.x, p.x), maxf(max_p.y, p.y))
+	if not have:
+		for cell in cells.values():
+			var cid := str(cell.get("cell_id", ""))
+			var p := cell_world_pos(cid) if not cid.is_empty() else axial_to_world(int(cell.get("q", 0)), int(cell.get("r", 0)))
+			if not have:
+				min_p = p
+				max_p = p
+				have = true
+			else:
+				min_p = Vector2(minf(min_p.x, p.x), minf(min_p.y, p.y))
+				max_p = Vector2(maxf(max_p.x, p.x), maxf(max_p.y, p.y))
 	if not have:
 		return Rect2(Vector2.ZERO, Vector2.ONE)
-	var pad := Vector2(hex_size_px * 2.0, hex_size_px * 2.0)
+	var pad_s := geo_px_per_deg * 1.2 if use_geo_world else hex_size_px * 2.0
+	var pad := Vector2(pad_s, pad_s)
 	return Rect2(min_p - pad, (max_p - min_p) + pad * 2.0)
 
 
@@ -203,6 +327,99 @@ func suggested_hex_size(dir_name: String = theater_id) -> float:
 
 func _apply_default_hex_size() -> void:
 	hex_size_px = suggested_hex_size(theater_id)
+
+
+func _load_overlays(dir_name: String) -> void:
+	overlay_features.clear()
+	var dirs: PackedStringArray = [
+		"%s/%s/overlays" % [THEATERS_ROOT, dir_name],
+		"%s/med_v0/overlays" % THEATERS_ROOT,
+	]
+	var seen := {}
+	for folder in dirs:
+		var dir := DirAccess.open(folder)
+		if dir == null:
+			continue
+		dir.list_dir_begin()
+		var fname := dir.get_next()
+		while fname != "":
+			if not dir.current_is_dir() and fname.ends_with(".geojson") and not seen.has(fname):
+				seen[fname] = true
+				_ingest_geojson("%s/%s" % [folder, fname])
+			fname = dir.get_next()
+		dir.list_dir_end()
+	use_geo_world = not overlay_features.is_empty()
+	if overlay_features.is_empty():
+		use_geo_world = _cells_have_centroids()
+
+
+func _cells_have_centroids() -> bool:
+	for cell in cells.values():
+		var c: Variant = cell.get("centroid", {})
+		if typeof(c) == TYPE_DICTIONARY and (c.has("lon") or c.has("lat")):
+			return true
+	return false
+
+
+func _ingest_geojson(path: String) -> void:
+	var parsed: Variant = _read_json(path)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return
+	var feats: Array = parsed.get("features", [])
+	if typeof(feats) != TYPE_ARRAY:
+		return
+	for raw in feats:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var props: Dictionary = raw.get("properties", {})
+		if typeof(props) != TYPE_DICTIONARY:
+			props = {}
+		var geom: Dictionary = raw.get("geometry", {})
+		if typeof(geom) != TYPE_DICTIONARY:
+			continue
+		var rings := _geojson_rings(geom)
+		if rings.is_empty():
+			continue
+		overlay_features.append({
+			"kind": str(props.get("kind", "territory")),
+			"name": str(props.get("name", "")),
+			"cell_id": str(props.get("cell_id", "")),
+			"rings": rings,
+		})
+
+
+func _geojson_rings(geom: Dictionary) -> Array:
+	var out: Array = []
+	var gtype := str(geom.get("type", ""))
+	var coords: Variant = geom.get("coordinates", [])
+	if gtype == "Polygon" and typeof(coords) == TYPE_ARRAY:
+		for ring in coords:
+			var pts := _lonlat_ring(ring)
+			if pts.size() >= 3:
+				out.append(pts)
+	elif gtype == "MultiPolygon" and typeof(coords) == TYPE_ARRAY:
+		for poly in coords:
+			if typeof(poly) != TYPE_ARRAY:
+				continue
+			for ring in poly:
+				var pts := _lonlat_ring(ring)
+				if pts.size() >= 3:
+					out.append(pts)
+	return out
+
+
+func _lonlat_ring(ring: Variant) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	if typeof(ring) != TYPE_ARRAY:
+		return pts
+	for pair in ring:
+		if typeof(pair) != TYPE_ARRAY or pair.size() < 2:
+			continue
+		pts.append(lonlat_to_world(float(pair[0]), float(pair[1])))
+	# GeoJSON rings repeat the first vertex; Godot triangulation rejects that.
+	if pts.size() >= 2 and pts[0].distance_to(pts[pts.size() - 1]) < 0.001:
+		pts.remove_at(pts.size() - 1)
+	return pts
 
 
 func _load_cells(parsed: Variant) -> void:

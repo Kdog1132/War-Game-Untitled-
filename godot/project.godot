@@ -4,7 +4,7 @@ config_version=5
 
 [application]
 config/name="Atlas Stub Med"
-config/description="M0–M6 Mediterranean hex — map, army, ownership, annex, economy, shipping"
+config/description="M0–M6 Mediterranean — painted map, army, ownership, annex, economy, shipping"
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.2", "Forward Plus")
 config/icon="res://icon.svg"

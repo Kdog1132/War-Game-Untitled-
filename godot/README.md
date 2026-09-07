@@ -1,6 +1,6 @@
 # Atlas M0–M6 — Stub Mediterranean
 
-Godot 4.2+ hex theater for Atlas (Godot Core). Loads JSON theaters through a thin `MapService` (no `.tres`), draws terrain + ownership, pans/zooms with a `Camera2D`, pathfinds one army, and runs M2–M6 ownership / annex / economy / shipping.
+Godot 4.2+ theater for Atlas (Godot Core). Loads JSON theaters through a thin `MapService` (no `.tres`), paints a Mediterranean coastline + territories (not a hex grid), pans/zooms with a `Camera2D`, pathfinds one army, and runs M2–M6 ownership / annex / economy / shipping.
 
 This folder is the Godot project. Import **this** folder (`godot/project.godot`) — not the repo root.
 
@@ -10,27 +10,39 @@ This folder is the Godot project. Import **this** folder (`godot/project.godot`)
 2. Project Manager → **Import** → select the `godot/` folder (the one that contains `project.godot`).
 3. Press **F5**. Main scene is `res://scenes/Main.tscn`.
 
-It boots on `stub_med` with colored hexes, ownership tints, a shipping lane, HUD (supply / selection / annex / lanes), and a working camera.
+It boots on `stub_med` with a painted Med coastline, ownership-tinted territories, a shipping lane, HUD (supply / selection / annex / lanes), and a working camera. Left-click select/move uses canvas/camera space (not raw viewport pixels).
 
 Headless checks (from this `godot/` folder):
 
 ```bash
 python3 tools/validate_m0.py
 python3 tools/validate_m2.py
+python3 tools/click_check.py                                 # prints CLICK_CHECK_OK
 godot --headless --path . -s res://tools/boot_check.gd
 godot --headless --path . -s res://tools/path_check.gd
+godot --headless --path . -s res://tools/click_check.gd      # select + move after pan/zoom
 godot --headless --path . -s res://tools/prove_annex.gd      # prints ANNEX_FLIP
 godot --headless --path . -s res://tools/prove_economy.gd    # prints SUPPLY_EARN / SUPPLY_SPEND
 godot --headless --path . -s res://tools/prove_shipping.gd   # prints FERRY_START / FERRY_ARRIVE
 ```
+
+### Manual click check
+
+1. Import `godot/` and press **F5**. You should see a tan landmass and a blue Mediterranean basin — not a hex honeycomb.
+2. **LMB** the blue army chevron on Gibraltar. Gold ring + gold territory outline.
+3. Pan with **WASD** or **middle-drag**, zoom with the wheel.
+4. **LMB** Andalusia (or Italy). The army hops; hover outline stays obvious.
+5. Occupy a neutral/enemy territory — annex meter fills and the tint flips (M3).
+
+If left-click does nothing but the camera still pans, the picker is reading viewport pixels instead of `get_canvas_transform().affine_inverse()`.
 
 ## Controls
 
 | Input | Action |
 | --- | --- |
 | **WASD** or arrow keys | Pan |
-| Left-click | Select the army, or (if selected) A* move to that hex. Harbor → harbor starts a ferry. |
-| Left-drag or middle-drag | Pan |
+| Left-click | Select the army, or (if selected) A* move to that territory. Harbor → harbor starts a ferry. |
+| Middle-drag | Pan |
 | Right-click or **Esc** | Deselect army |
 | Mouse wheel | Zoom |
 | **1** | Load `stub_med` (hex size ~48 px) |
@@ -81,6 +93,7 @@ Forge lane control on stub_med: Gibraltar is player, Suez is enemy → lane `l_1
 | --- | --- |
 | `data/theaters/stub_med/` | Exact 8-cell Gibraltar → Suez stub (c_0_0…c_5_0 + c_1_1 + Levant c_4_1). Two harbors (`chokepoint:true`, `chokepoint_id` gibraltar\|suez), one lane `l_1`. |
 | `data/theaters/med_v0/` | Larger Mediterranean ribbon sized to the Terra pack: **989 cells / 17 harbors / 34 lanes**. Generated stand-in so KEY_2 works in-repo. |
+| `data/theaters/med_v0/overlays/` | Stub coastline + territory GeoJSON rings (no Terra PNG in-repo yet). Shared paint for `stub_med` and `med_v0`. |
 
 Theater files (all required):
 

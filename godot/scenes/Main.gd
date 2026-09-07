@@ -80,7 +80,7 @@ func _load_theater(dir_name: String) -> void:
 func _refresh_hud() -> void:
 	var name := str(MapService.meta.get("name", MapService.theater_id))
 	theater_label.text = "%s  (%s)  %s" % [name, MapService.theater_id, OwnershipService.counts_hud()]
-	help_label.text = "1 stub_med  2 med_v0  click army/hex  harbor→harbor ferry  H/F/R/B build  WASD/drag  wheel  %d cells" % MapService.cells.size()
+	help_label.text = "1 stub_med  2 med_v0  LMB army/territory  MMB pan  WASD  wheel  H/F/R/B build  %d cells" % MapService.cells.size()
 	if status_label:
 		status_label.text = _status_text()
 
@@ -106,7 +106,7 @@ func _status_text() -> String:
 	elif cell.is_empty():
 		bits.append("No army")
 	elif ArmyService.is_selected():
-		bits.append("Selected %s  str %.0f  LMB hex to hop / harbor to ferry" % [
+		bits.append("Selected %s  str %.0f  LMB territory to hop / harbor to ferry" % [
 			cell,
 			float(ArmyService.player().get("strength", 100.0)),
 		])

@@ -36,7 +36,7 @@ offset_bottom = 46.0
 theme_override_colors/font_color = Color(0.78, 0.82, 0.88, 0.9)
 theme_override_font_sizes/font_size = 12
 mouse_filter = 2
-text = "1 stub_med   2 med_v0   WASD / drag pan   wheel zoom"
+text = "1 stub_med   2 med_v0   LMB select/move   MMB pan   WASD   wheel zoom"
 
 [node name="StatusLabel" type="Label" parent="HUD"]
 offset_left = 16.0
