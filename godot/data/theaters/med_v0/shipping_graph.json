@@ -1,0 +1,329 @@
+{
+  "nodes": [
+    {
+      "harbor_node_id": "h_gibraltar",
+      "port_id": "p_gibraltar",
+      "cell_id": "c_-25_10"
+    },
+    {
+      "harbor_node_id": "h_tangier",
+      "port_id": "p_tangier",
+      "cell_id": "c_-26_10"
+    },
+    {
+      "harbor_node_id": "h_barcelona",
+      "port_id": "p_barcelona",
+      "cell_id": "c_-16_12"
+    },
+    {
+      "harbor_node_id": "h_marseille",
+      "port_id": "p_marseille",
+      "cell_id": "c_-12_13"
+    },
+    {
+      "harbor_node_id": "h_genoa",
+      "port_id": "p_genoa",
+      "cell_id": "c_-8_12"
+    },
+    {
+      "harbor_node_id": "h_naples",
+      "port_id": "p_naples",
+      "cell_id": "c_-2_5"
+    },
+    {
+      "harbor_node_id": "h_palermo",
+      "port_id": "p_palermo",
+      "cell_id": "c_-3_2"
+    },
+    {
+      "harbor_node_id": "h_valletta",
+      "port_id": "p_valletta",
+      "cell_id": "c_-2_-2"
+    },
+    {
+      "harbor_node_id": "h_tunis",
+      "port_id": "p_tunis",
+      "cell_id": "c_-7_2"
+    },
+    {
+      "harbor_node_id": "h_algiers",
+      "port_id": "p_algiers",
+      "cell_id": "c_-15_6"
+    },
+    {
+      "harbor_node_id": "h_tripoli",
+      "port_id": "p_tripoli",
+      "cell_id": "c_-3_-5"
+    },
+    {
+      "harbor_node_id": "h_athens",
+      "port_id": "p_athens",
+      "cell_id": "c_9_-5"
+    },
+    {
+      "harbor_node_id": "h_istanbul",
+      "port_id": "p_istanbul",
+      "cell_id": "c_15_-4"
+    },
+    {
+      "harbor_node_id": "h_izmir",
+      "port_id": "p_izmir",
+      "cell_id": "c_13_-6"
+    },
+    {
+      "harbor_node_id": "h_alexandria",
+      "port_id": "p_alexandria",
+      "cell_id": "c_16_-17"
+    },
+    {
+      "harbor_node_id": "h_suez",
+      "port_id": "p_suez",
+      "cell_id": "c_19_-20"
+    },
+    {
+      "harbor_node_id": "h_haifa",
+      "port_id": "p_haifa",
+      "cell_id": "c_22_-18"
+    }
+  ],
+  "edges": [
+    {
+      "lane_id": "l_gibraltar_tangier",
+      "a": "h_gibraltar",
+      "b": "h_tangier",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_gibraltar_algiers",
+      "a": "h_gibraltar",
+      "b": "h_algiers",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_gibraltar_barcelona",
+      "a": "h_gibraltar",
+      "b": "h_barcelona",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_tangier_algiers",
+      "a": "h_tangier",
+      "b": "h_algiers",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_tangier_barcelona",
+      "a": "h_tangier",
+      "b": "h_barcelona",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_barcelona_marseille",
+      "a": "h_barcelona",
+      "b": "h_marseille",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_barcelona_algiers",
+      "a": "h_barcelona",
+      "b": "h_algiers",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_marseille_genoa",
+      "a": "h_marseille",
+      "b": "h_genoa",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_marseille_algiers",
+      "a": "h_marseille",
+      "b": "h_algiers",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_genoa_naples",
+      "a": "h_genoa",
+      "b": "h_naples",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_genoa_tunis",
+      "a": "h_genoa",
+      "b": "h_tunis",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_genoa_athens",
+      "a": "h_genoa",
+      "b": "h_athens",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_naples_palermo",
+      "a": "h_naples",
+      "b": "h_palermo",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_naples_tunis",
+      "a": "h_naples",
+      "b": "h_tunis",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_naples_athens",
+      "a": "h_naples",
+      "b": "h_athens",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_palermo_tunis",
+      "a": "h_palermo",
+      "b": "h_tunis",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_palermo_valletta",
+      "a": "h_palermo",
+      "b": "h_valletta",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_palermo_athens",
+      "a": "h_palermo",
+      "b": "h_athens",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_valletta_tripoli",
+      "a": "h_valletta",
+      "b": "h_tripoli",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_valletta_athens",
+      "a": "h_valletta",
+      "b": "h_athens",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_valletta_alexandria",
+      "a": "h_valletta",
+      "b": "h_alexandria",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_tunis_algiers",
+      "a": "h_tunis",
+      "b": "h_algiers",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_tunis_tripoli",
+      "a": "h_tunis",
+      "b": "h_tripoli",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_tripoli_alexandria",
+      "a": "h_tripoli",
+      "b": "h_alexandria",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_alexandria_suez",
+      "a": "h_alexandria",
+      "b": "h_suez",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_alexandria_haifa",
+      "a": "h_alexandria",
+      "b": "h_haifa",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_suez_haifa",
+      "a": "h_suez",
+      "b": "h_haifa",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_athens_istanbul",
+      "a": "h_athens",
+      "b": "h_istanbul",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_athens_izmir",
+      "a": "h_athens",
+      "b": "h_izmir",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_athens_alexandria",
+      "a": "h_athens",
+      "b": "h_alexandria",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_athens_haifa",
+      "a": "h_athens",
+      "b": "h_haifa",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_istanbul_izmir",
+      "a": "h_istanbul",
+      "b": "h_izmir",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_izmir_haifa",
+      "a": "h_izmir",
+      "b": "h_haifa",
+      "weight": 1.0,
+      "state": "Open"
+    },
+    {
+      "lane_id": "l_istanbul_haifa",
+      "a": "h_istanbul",
+      "b": "h_haifa",
+      "weight": 1.0,
+      "state": "Open"
+    }
+  ]
+}

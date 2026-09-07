@@ -1,0 +1,56 @@
+{
+  "schema": "forge.slice_v1",
+  "tick_sec": 1.0,
+  "enter_time_sec": {
+    "plains": 2,
+    "urban": 2,
+    "forest": 3,
+    "desert": 3,
+    "hill": 4,
+    "swamp": 5,
+    "mountain": 6,
+    "water": null
+  },
+  "mobility_mult": {
+    "none": 1.0,
+    "Road": 0.6,
+    "Rail": 0.4
+  },
+  "sea_transit_sec": {
+    "Open": 8,
+    "Contested": 12,
+    "Blocked": null
+  },
+  "supply_trade": {
+    "Contested": 1,
+    "Open": 3,
+    "Blocked": 0
+  },
+  "annex": {
+    "rate_per_tick": 0.15,
+    "city_bonus": 0.05,
+    "fort_penalty": 0.08
+  },
+  "buildings": {
+    "Harbor": { "cost": 80, "build_ticks": 8 },
+    "Factory": { "cost": 100, "build_ticks": 10 },
+    "Road": { "cost": 35, "build_ticks": 3 },
+    "Rail": { "cost": 85, "build_ticks": 6 },
+    "Bunker": { "cost": 50, "build_ticks": 5 },
+    "AA": { "cost": 40, "build_ticks": 4 },
+    "SAM": { "cost": 70, "build_ticks": 7 }
+  },
+  "win": {
+    "land_control": 0.7
+  },
+  "lane_control": {
+    "contest_if_one_end_enemy": true,
+    "block_if_both_ends_enemy": true,
+    "block_if_port_closed": true,
+    "rules": [
+      "Open when both harbor ends are friendly or none.",
+      "Contested when exactly one end is enemy-owned.",
+      "Blocked when both ends are enemy-owned or a port is closed."
+    ]
+  }
+}

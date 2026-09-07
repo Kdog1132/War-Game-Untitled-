@@ -1,0 +1,7 @@
+{
+  "theater_id": "stub_med",
+  "name": "Stub Mediterranean",
+  "hex_km": 50,
+  "crs": "EPSG:4326",
+  "description": "8-cell Gibraltar → Suez stub (Terra pack)"
+}

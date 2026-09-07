@@ -1,0 +1,13 @@
+{
+  "note": "Design may retune",
+  "enter_time_sec": {
+    "plains": 2,
+    "urban": 2,
+    "forest": 3,
+    "desert": 3,
+    "hill": 4,
+    "swamp": 5,
+    "mountain": 6,
+    "water": null
+  }
+}

@@ -1,0 +1,23 @@
+; Engine configuration file.
+; Atlas M0 — stub Mediterranean hex map + MapService + camera
+config_version=5
+
+[application]
+config/name="Atlas Stub Med"
+config/description="M0 Mediterranean hex stub — map + camera + MapService"
+run/main_scene="res://scenes/Main.tscn"
+config/features=PackedStringArray("4.2", "Forward Plus")
+config/icon="res://icon.svg"
+
+[autoload]
+MapService="*res://autoload/MapService.gd"
+Balance="*res://autoload/Balance.gd"
+SimTick="*res://autoload/SimTick.gd"
+
+[display]
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+
+[rendering]
+renderer/rendering_method="forward_plus"

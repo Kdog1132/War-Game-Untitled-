@@ -1,0 +1,23 @@
+{
+  "nodes": [
+    {
+      "harbor_node_id": "h_gibraltar",
+      "port_id": "p_gibraltar",
+      "cell_id": "c_0_0"
+    },
+    {
+      "harbor_node_id": "h_suez",
+      "port_id": "p_suez",
+      "cell_id": "c_5_0"
+    }
+  ],
+  "edges": [
+    {
+      "lane_id": "l_1",
+      "a": "h_gibraltar",
+      "b": "h_suez",
+      "weight": 1.0,
+      "state": "Open"
+    }
+  ]
+}

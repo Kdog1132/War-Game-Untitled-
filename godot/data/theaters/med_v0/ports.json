@@ -1,0 +1,123 @@
+{
+  "ports": [
+    {
+      "port_id": "p_gibraltar",
+      "cell_id": "c_-25_10",
+      "harbor_node_id": "h_gibraltar",
+      "name": "Gibraltar",
+      "chokepoint": true
+    },
+    {
+      "port_id": "p_tangier",
+      "cell_id": "c_-26_10",
+      "harbor_node_id": "h_tangier",
+      "name": "Tangier",
+      "chokepoint": false
+    },
+    {
+      "port_id": "p_barcelona",
+      "cell_id": "c_-16_12",
+      "harbor_node_id": "h_barcelona",
+      "name": "Barcelona",
+      "chokepoint": false
+    },
+    {
+      "port_id": "p_marseille",
+      "cell_id": "c_-12_13",
+      "harbor_node_id": "h_marseille",
+      "name": "Marseille",
+      "chokepoint": false
+    },
+    {
+      "port_id": "p_genoa",
+      "cell_id": "c_-8_12",
+      "harbor_node_id": "h_genoa",
+      "name": "Genoa",
+      "chokepoint": false
+    },
+    {
+      "port_id": "p_naples",
+      "cell_id": "c_-2_5",
+      "harbor_node_id": "h_naples",
+      "name": "Naples",
+      "chokepoint": false
+    },
+    {
+      "port_id": "p_palermo",
+      "cell_id": "c_-3_2",
+      "harbor_node_id": "h_palermo",
+      "name": "Palermo",
+      "chokepoint": false
+    },
+    {
+      "port_id": "p_valletta",
+      "cell_id": "c_-2_-2",
+      "harbor_node_id": "h_valletta",
+      "name": "Valletta",
+      "chokepoint": false
+    },
+    {
+      "port_id": "p_tunis",
+      "cell_id": "c_-7_2",
+      "harbor_node_id": "h_tunis",
+      "name": "Tunis",
+      "chokepoint": false
+    },
+    {
+      "port_id": "p_algiers",
+      "cell_id": "c_-15_6",
+      "harbor_node_id": "h_algiers",
+      "name": "Algiers",
+      "chokepoint": false
+    },
+    {
+      "port_id": "p_tripoli",
+      "cell_id": "c_-3_-5",
+      "harbor_node_id": "h_tripoli",
+      "name": "Tripoli",
+      "chokepoint": false
+    },
+    {
+      "port_id": "p_athens",
+      "cell_id": "c_9_-5",
+      "harbor_node_id": "h_athens",
+      "name": "Athens",
+      "chokepoint": false
+    },
+    {
+      "port_id": "p_istanbul",
+      "cell_id": "c_15_-4",
+      "harbor_node_id": "h_istanbul",
+      "name": "Istanbul",
+      "chokepoint": false
+    },
+    {
+      "port_id": "p_izmir",
+      "cell_id": "c_13_-6",
+      "harbor_node_id": "h_izmir",
+      "name": "Izmir",
+      "chokepoint": false
+    },
+    {
+      "port_id": "p_alexandria",
+      "cell_id": "c_16_-17",
+      "harbor_node_id": "h_alexandria",
+      "name": "Alexandria",
+      "chokepoint": false
+    },
+    {
+      "port_id": "p_suez",
+      "cell_id": "c_19_-20",
+      "harbor_node_id": "h_suez",
+      "name": "Suez",
+      "chokepoint": true
+    },
+    {
+      "port_id": "p_haifa",
+      "cell_id": "c_22_-18",
+      "harbor_node_id": "h_haifa",
+      "name": "Haifa",
+      "chokepoint": false
+    }
+  ]
+}
