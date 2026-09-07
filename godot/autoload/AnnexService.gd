@@ -98,6 +98,25 @@ func _tick_cell(cell_id: String, dt: float, flips: Array) -> bool:
 	return true
 
 
+## Seconds to flip, or -1 if not annexing. INF if paused / no rate.
+func eta_sec(cell_id: String) -> float:
+	var progress := meter(cell_id)
+	var owner := _owner_of(cell_id)
+	var occ := _occupiers(cell_id)
+	var claimer := claiming_faction(cell_id)
+	if claimer == "":
+		claimer = _claimer(occ, owner)
+	if claimer == "":
+		return -1.0
+	if _paused(occ, claimer):
+		return INF
+	var strength := float(occ.get(claimer, 0.0))
+	var rate := annex_rate_pct(owner, strength)
+	if rate <= 0.001:
+		return INF
+	return maxf(0.0, (_flip_at() - progress) / rate)
+
+
 func annex_rate_pct(owner: String, strength: float) -> float:
 	var cfg: Dictionary = Balance.annex_cfg() if Balance != null else {}
 	if owner == "none":

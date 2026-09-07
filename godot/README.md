@@ -34,25 +34,25 @@ godot --headless --path . -s res://tools/prove_shipping.gd   # prints FERRY_STAR
 4. **LMB** Andalusia (or Italy). The army hops; hover outline stays obvious.
 5. Occupy a neutral/enemy territory — annex meter fills and the tint flips (M3).
 
-If left-click does nothing but the camera still pans, the picker is reading viewport pixels instead of `get_canvas_transform().affine_inverse()`.
+Picking uses `get_local_mouse_position()` on the map Node2D (Camera2D child). If left-click does nothing but the camera still pans, the picker is reading viewport pixels instead of local mouse.
 
 ## Controls
 
 | Input | Action |
 | --- | --- |
 | **WASD** or arrow keys | Pan |
-| Left-click | Select the army, or (if selected) A* move to that territory. Harbor → harbor starts a ferry. |
+| Left-click | Pick a territory (soft pulse + annex meter). If the army is selected, also A* move / ferry. |
 | Middle-drag | Pan |
 | Right-click or **Esc** | Deselect army |
 | Mouse wheel | Zoom |
-| **1** | Load `stub_med` (hex size ~48 px) |
-| **2** | Load `med_v0` (hex size ~14 px) |
+| **1** | Load `stub_med` |
+| **2** | Load `med_v0` |
 | **H** | Start Harbor (200 supply / 20 ticks) on the hover or army cell |
 | **F** | Start Factory (150 / 15) |
 | **R** | Start Road (40 / 5, mobility 0.6) |
 | **B** | Place Bunker stub (50 / 5) |
 
-HUD shows theater + **P/N/E** counts, **Supply** (+land / factory / trade), selection, **annex meter**, and **lane states** (Open green / Contested gold / Blocked red).
+HUD shows theater + **P/N/E** counts, **Supply** (+land / factory / trade), selection, **annex meter** on the picked territory (ETA only if annex is slow), and **lane states** (Open / Contested / Blocked). No hex grid. Hover shows a move ghost trail.
 
 ## Systems
 

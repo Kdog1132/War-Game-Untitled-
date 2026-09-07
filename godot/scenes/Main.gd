@@ -1,6 +1,6 @@
 extends Node
-## M0–M6 boot: stub_med, WorldMap, HUD (supply / selection / annex / lanes).
-## KEY_1 = stub_med (hex ~48px). KEY_2 = med_v0 (hex ~14px).
+## M0–M6 boot: stub_med, WorldMap, HUD (Supply + lane Open/Contested/Blocked).
+## KEY_1 = stub_med. KEY_2 = med_v0.
 
 @onready var world_map: Node2D = $WorldMap
 @onready var theater_label: Label = $HUD/TheaterLabel
@@ -80,7 +80,7 @@ func _load_theater(dir_name: String) -> void:
 func _refresh_hud() -> void:
 	var name := str(MapService.meta.get("name", MapService.theater_id))
 	theater_label.text = "%s  (%s)  %s" % [name, MapService.theater_id, OwnershipService.counts_hud()]
-	help_label.text = "1 stub_med  2 med_v0  LMB army/territory  MMB pan  WASD  wheel  H/F/R/B build  %d cells" % MapService.cells.size()
+	help_label.text = "1 stub_med  2 med_v0  LMB pick territory  MMB pan  WASD  wheel  H/F/R/B build  %d cells" % MapService.cells.size()
 	if status_label:
 		status_label.text = _status_text()
 
@@ -111,19 +111,22 @@ func _status_text() -> String:
 			float(ArmyService.player().get("strength", 100.0)),
 		])
 	else:
-		bits.append("LMB army on %s to select" % cell)
-	var annex_cell := cell
-	if world_map != null:
-		var hover := str(world_map.get("_hover_cell"))
-		if not hover.is_empty():
-			annex_cell = hover
+		bits.append("LMB a territory to pick")
+	var annex_cell := ""
+	if world_map != null and world_map.has_method("picked_cell"):
+		annex_cell = str(world_map.call("picked_cell"))
+	if annex_cell.is_empty():
+		annex_cell = cell
 	if not annex_cell.is_empty():
 		var meter := AnnexService.meter(annex_cell)
 		var claim := AnnexService.claiming_faction(annex_cell)
 		if meter > 0.0:
-			bits.append("Annex %s  %.0f/100  %s" % [annex_cell, meter, claim])
-		else:
-			bits.append("Annex %s  —" % annex_cell)
+			var annex := "Annex %s  %.0f/100  %s" % [annex_cell, meter, claim]
+			var eta := AnnexService.eta_sec(annex_cell)
+			# ETA only when annex is slow (>8s). Fast flips stay meter-only.
+			if is_finite(eta) and eta > 8.0:
+				annex += "  ETA %.0fs" % eta
+			bits.append(annex)
 	var lanes := ShippingService.lane_hud()
 	if lanes != "":
 		bits.append("Lanes  %s" % lanes)

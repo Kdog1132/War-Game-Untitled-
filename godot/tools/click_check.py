@@ -156,6 +156,12 @@ def main() -> int:
         if not point_in_ring(world, feat["rings"][0]):
             errors.append("%s centroid not in its territory" % cid)
 
+    worldmap = (ROOT / "scenes/WorldMap.gd").read_text()
+    if "get_local_mouse_position()" not in worldmap:
+        errors.append("WorldMap.world_mouse must use get_local_mouse_position() under Camera2D")
+    if "_draw_hex" in worldmap or "_hex_corners" in worldmap:
+        errors.append("painted view still has hex outline/grid chrome")
+
     if errors:
         print("CLICK_CHECK_FAIL")
         for e in errors:
@@ -167,7 +173,7 @@ def main() -> int:
         % (len(coastline) + len(territories), len(territories), zoom, cam[0], cam[1])
     )
     print(
-        "confirmed: LMB must use canvas/camera inverse; raw viewport pixels miss after center_on_cells"
+        "confirmed: get_local_mouse_position() under Camera2D; raw viewport pixels miss after center_on_cells"
     )
     return 0
 

@@ -1,5 +1,5 @@
 extends Node2D
-## Painted Med map + camera-aware LMB pick (select army / move / highlight).
+## Painted Med map. LMB picks a territory via get_local_mouse_position() (Camera2D).
 
 const PathfinderScript := preload("res://map/Pathfinder.gd")
 
@@ -10,25 +10,24 @@ const SEA := Color("#1a5f8a")
 const SEA_DEEP := Color("#12486c")
 const COAST := Color("#2a2118")
 const OWNER_FILL := {
-	"player": Color(0.20, 0.48, 0.92, 0.55),
-	"enemy": Color(0.88, 0.22, 0.22, 0.55),
-	"none": Color(0.55, 0.52, 0.42, 0.28),
+	"player": Color(0.20, 0.48, 0.92, 0.50),
+	"enemy": Color(0.88, 0.22, 0.22, 0.50),
+	"none": Color(0.55, 0.52, 0.42, 0.22),
 }
 const LANE_COLOR := Color(0.35, 0.75, 0.95, 0.85)
 const ARMY_COL := Color("#2E6BFF")
 const SELECT_COL := Color("#F5E6A8")
-const PATH_COL := Color(0.98, 0.92, 0.45, 0.95)
-const PREVIEW_COL := Color(1.0, 1.0, 1.0, 0.55)
-const HOVER_COL := Color(1.0, 1.0, 1.0, 0.95)
-const FLASH_COL := Color(1.0, 1.0, 1.0, 0.55)
+const PATH_COL := Color(0.98, 0.92, 0.45, 0.55)
+const PREVIEW_COL := Color(1.0, 1.0, 1.0, 0.42)
+const HOVER_COL := Color(1.0, 1.0, 1.0, 0.55)
 
 @onready var camera: Camera2D = $Camera2D
 
 var _dragging: bool = false
 var _hover_cell: String = ""
+var _picked_cell: String = ""
 var _preview_path: Array = []
-var _flash_cell: String = ""
-var _flash_t: float = 0.0
+var _pulse: float = 0.0
 
 
 func _ready() -> void:
@@ -51,7 +50,7 @@ func rebuild() -> void:
 	ArmyService.reset_for_theater()
 	_preview_path.clear()
 	_hover_cell = ""
-	_flash_cell = ""
+	_picked_cell = ""
 	queue_redraw()
 	center_on_cells()
 	_emit_status()
@@ -93,10 +92,8 @@ func _process(delta: float) -> void:
 		var speed := 520.0 / maxf(camera.zoom.x, 0.05)
 		camera.position += pan.normalized() * speed * delta
 	ArmyService.process_hops(delta)
-	if _flash_t > 0.0:
-		_flash_t = maxf(0.0, _flash_t - delta)
-		if _flash_t <= 0.0:
-			_flash_cell = ""
+	_pulse += delta
+	if not _picked_cell.is_empty() or ArmyService.is_selected():
 		queue_redraw()
 	_update_hover()
 
@@ -107,6 +104,7 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ESCAPE:
 			ArmyService.deselect()
+			_picked_cell = ""
 			_preview_path.clear()
 			get_viewport().set_input_as_handled()
 			return
@@ -124,10 +122,11 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 		elif mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
 			ArmyService.deselect()
+			_picked_cell = ""
 			_preview_path.clear()
 			get_viewport().set_input_as_handled()
 		elif mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
-			# LMB is pick-only. Pan is WASD / middle-drag so camera cannot eat clicks.
+			# Click-select a territory. No brush. Pan is WASD / middle-drag.
 			_click_world()
 			get_viewport().set_input_as_handled()
 	elif event is InputEventMouseMotion and _dragging:
@@ -142,13 +141,15 @@ func _zoom_by(factor: float) -> void:
 
 
 func world_mouse() -> Vector2:
-	## Canvas transform includes Camera2D pan/zoom (and stretch).
-	## Raw event.position / viewport pixels miss every cell after center_on_cells.
-	var vp := get_viewport()
-	if vp == null:
-		return Vector2.ZERO
-	var canvas := get_canvas_transform().affine_inverse() * vp.get_mouse_position()
-	return to_local(canvas)
+	## Local mouse on this Node2D. Camera2D is a child; Godot applies the
+	## canvas transform so this stays in map space after pan/zoom.
+	return get_local_mouse_position()
+
+
+func picked_cell() -> String:
+	if not _picked_cell.is_empty():
+		return _picked_cell
+	return ArmyService.player_cell()
 
 
 func _click_world() -> void:
@@ -157,8 +158,7 @@ func _click_world() -> void:
 		cid = ArmyService.player_cell()
 	if cid.is_empty():
 		return
-	_flash_cell = cid
-	_flash_t = 0.35
+	_picked_cell = cid
 	var result := ArmyService.try_click(cid)
 	if result == "no_path":
 		_emit_status("No path")
@@ -195,12 +195,9 @@ func _draw() -> void:
 		return
 	var bounds := MapService.map_bounds().grow(MapService.geo_px_per_deg * 8.0)
 	draw_rect(bounds, SEA_DEEP)
-	if MapService.overlay_features.is_empty():
-		_draw_hex_fallback()
-	else:
-		_draw_painted_map()
-	_draw_path(_preview_path, PREVIEW_COL, 2.0)
-	_draw_path(ArmyService.last_path(), PATH_COL, 3.0)
+	_draw_painted_map()
+	_draw_ghost_trail(_preview_path, PREVIEW_COL)
+	_draw_ghost_trail(ArmyService.last_path(), PATH_COL)
 	_draw_lanes()
 	for aid in ArmyService.armies.keys():
 		var rec: Dictionary = ArmyService.armies[aid]
@@ -229,51 +226,27 @@ func _draw_territory(feat: Dictionary) -> void:
 	var blend := AnnexService.tint_factor(cid)
 	if blend > 0.0 and claim != "" and OWNER_FILL.has(claim):
 		fill = fill.lerp(OWNER_FILL[claim], blend)
-	if cid == _hover_cell:
-		fill = fill.lightened(0.28)
-	if cid == ArmyService.player_cell() and ArmyService.is_selected():
-		fill = fill.lerp(SELECT_COL, 0.35)
-	if cid == _flash_cell and _flash_t > 0.0:
-		fill = fill.lerp(FLASH_COL, clampf(_flash_t / 0.35, 0.0, 1.0))
+	var selected := cid == _picked_cell or (cid == ArmyService.player_cell() and ArmyService.is_selected())
+	var hovered := cid == _hover_cell and not selected
+	var pulse := 0.5 + 0.5 * sin(_pulse * 3.2)
+	if hovered:
+		fill = fill.lightened(0.16)
+	if selected:
+		fill = fill.lerp(SELECT_COL, 0.14 + 0.12 * pulse)
 	_fill_feature(feat, fill)
-	var width := 1.6
-	var line := Color(0.18, 0.14, 0.10, 0.75)
-	if cid == _hover_cell:
-		line = HOVER_COL
-		width = 3.2
-	if cid == ArmyService.player_cell() and ArmyService.is_selected():
-		line = SELECT_COL
-		width = 3.6
-	_stroke_feature(feat, line, width)
+	if selected:
+		var line := SELECT_COL
+		line.a = 0.40 + 0.50 * pulse
+		_stroke_feature(feat, line, 2.0 + 1.6 * pulse)
+	elif hovered:
+		_stroke_feature(feat, HOVER_COL, 1.8)
 	var center := _feature_centroid(feat)
 	if center == Vector2.ZERO:
 		center = MapService.cell_world_pos(cid)
 	_draw_label(center, str(feat.get("name", cid)))
-	_draw_annex_meter(center, cid)
+	if selected:
+		_draw_annex_meter(center, cid)
 	_draw_buildings(center, cid)
-
-
-func _draw_hex_fallback() -> void:
-	for cell in MapService.cells.values():
-		var q := int(cell.get("q", 0))
-		var r := int(cell.get("r", 0))
-		var center := MapService.axial_to_world(q, r)
-		var pts := _hex_corners(center, MapService.hex_size_px * 0.96)
-		draw_colored_polygon(pts, LAND)
-		var cid := str(cell.get("cell_id", ""))
-		var owner := MapService.get_cell_owner(cid)
-		draw_colored_polygon(pts, OWNER_FILL.get(owner, OWNER_FILL["none"]))
-		var outline := pts.duplicate()
-		outline.append(pts[0])
-		var col := COAST
-		var w := 1.2
-		if cid == _hover_cell:
-			col = HOVER_COL
-			w = 2.4
-		if cid == ArmyService.player_cell() and ArmyService.is_selected():
-			col = SELECT_COL
-			w = 3.0
-		draw_polyline(outline, col, w)
 
 
 func _fill_feature(feat: Dictionary, col: Color) -> void:
@@ -319,15 +292,21 @@ func _draw_label(center: Vector2, text: String) -> void:
 		draw_string(font, center + Vector2(-sz.x * 0.5, -8), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(0.08, 0.07, 0.05, 0.9))
 
 
-func _draw_path(cells: Array, col: Color, width: float) -> void:
+func _draw_ghost_trail(cells: Array, col: Color) -> void:
 	if cells.size() < 2:
 		return
-	var thick := maxf(width, MapService.geo_px_per_deg * 0.06)
 	for i in range(cells.size() - 1):
 		var a := MapService.cell_world_pos(str(cells[i]))
 		var b := MapService.cell_world_pos(str(cells[i + 1]))
-		draw_line(a, b, col, thick)
-		draw_circle(b, MapService.geo_px_per_deg * 0.12, col)
+		var faded := col
+		faded.a = col.a * 0.55
+		draw_line(a, b, faded, 2.2)
+		var steps := 5
+		for s in range(1, steps + 1):
+			var t := float(s) / float(steps)
+			var ghost := col
+			ghost.a = col.a * (0.25 + 0.55 * t)
+			draw_circle(a.lerp(b, t), 2.6, ghost)
 
 
 func _draw_lanes() -> void:
@@ -395,17 +374,10 @@ func _draw_army(pos: Vector2, selected: bool) -> void:
 	var ring := SELECT_COL if selected else Color(0.05, 0.08, 0.16, 0.9)
 	draw_polyline(pts + PackedVector2Array([pts[0]]), ring, 3.2 if selected else 1.6)
 	if selected:
-		draw_arc(pos, s * 1.55, 0.0, TAU, 28, SELECT_COL, 2.4)
-	elif _hover_cell == ArmyService.player_cell() and not _hover_cell.is_empty():
-		draw_arc(pos, s * 1.35, 0.0, TAU, 24, HOVER_COL, 2.0)
-
-
-func _hex_corners(center: Vector2, size: float) -> PackedVector2Array:
-	var pts := PackedVector2Array()
-	for i in 6:
-		var angle := deg_to_rad(60.0 * float(i))
-		pts.append(center + Vector2(cos(angle), sin(angle)) * size)
-	return pts
+		var pulse := 0.5 + 0.5 * sin(_pulse * 3.2)
+		var glow := SELECT_COL
+		glow.a = 0.35 + 0.45 * pulse
+		draw_arc(pos, s * (1.35 + 0.25 * pulse), 0.0, TAU, 28, glow, 2.2)
 
 
 func _emit_status(extra: String = "") -> void:
@@ -418,8 +390,8 @@ func _emit_status(extra: String = "") -> void:
 	elif ArmyService.is_selected():
 		bits.append("army selected on %s — LMB a territory to move" % cell)
 	else:
-		bits.append("LMB army on %s to select" % cell)
-	if not _hover_cell.is_empty():
-		var hover_name := str(MapService.get_cell(_hover_cell).get("name", _hover_cell))
-		bits.append("hover %s" % hover_name)
+		bits.append("LMB a territory to pick, or the army on %s" % cell)
+	if not _picked_cell.is_empty():
+		var picked_name := str(MapService.get_cell(_picked_cell).get("name", _picked_cell))
+		bits.append("picked %s" % picked_name)
 	status_changed.emit("   ".join(bits))
