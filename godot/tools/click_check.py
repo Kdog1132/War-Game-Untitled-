@@ -60,6 +60,10 @@ def load_json(path: Path):
     return json.loads(path.read_text())
 
 
+def _ring_world(coords) -> list[tuple[float, float]]:
+    return [lonlat_to_world(float(p[0]), float(p[1])) for p in coords if len(p) >= 2]
+
+
 def geojson_world_rings(path: Path) -> list[dict]:
     data = load_json(path)
     out = []
@@ -68,14 +72,24 @@ def geojson_world_rings(path: Path) -> list[dict]:
         geom = feat.get("geometry") or {}
         coords = geom.get("coordinates") or []
         rings = []
-        if geom.get("type") == "Polygon":
+        gtype = geom.get("type")
+        if gtype == "Polygon":
             for ring in coords:
-                rings.append([lonlat_to_world(float(p[0]), float(p[1])) for p in ring])
+                rings.append(_ring_world(ring))
+        elif gtype == "MultiPolygon":
+            for poly in coords:
+                for ring in poly:
+                    rings.append(_ring_world(ring))
+        elif gtype == "LineString":
+            rings.append(_ring_world(coords))
+        elif gtype == "MultiLineString":
+            for line in coords:
+                rings.append(_ring_world(line))
         out.append(
             {
                 "kind": props.get("kind", ""),
                 "cell_id": props.get("cell_id", ""),
-                "name": props.get("name", ""),
+                "name": props.get("name", props.get("NAME", "")),
                 "rings": rings,
             }
         )
@@ -96,7 +110,10 @@ def bounds_of(features: list[dict]) -> tuple[tuple[float, float], tuple[float, f
 def main() -> int:
     cells = {c["cell_id"]: c for c in load_json(CELLS)}
     coastline = geojson_world_rings(OVERLAYS / "coastline.geojson")
-    territories = geojson_world_rings(OVERLAYS / "territories.geojson")
+    slice1 = OVERLAYS / "admin_regions_slice1.geojson"
+    territories = geojson_world_rings(
+        slice1 if slice1.is_file() else OVERLAYS / "territories.geojson"
+    )
     if not coastline or not territories:
         print("CLICK_CHECK_FAIL missing overlays")
         return 1

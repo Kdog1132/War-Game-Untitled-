@@ -39,7 +39,7 @@ var loaded: bool = false
 
 ## Lon/lat paint. Prefer Terra bake under overlays/ when present:
 ## land_fill.png, ocean.png, meta.json (EPSG:4326 bounds), coastline + admin GeoJSON.
-## TODO: swap stub coastline.geojson / territories.geojson once Terra lands those files.
+## Paint prefers admin_regions_slice1.geojson (8 regions).
 var overlay_features: Array = [] ## [{kind, name, cell_id, rings:[PackedVector2Array]}]
 var overlay_rasters: Array = [] ## [{kind, texture, rect}]
 var overlay_source: String = "stub" ## "terra" | "stub"
@@ -377,12 +377,15 @@ func _load_terra_overlays(folder: String) -> bool:
 	if FileAccess.file_exists("%s/coastline.geojson" % folder) and has_png:
 		_ingest_geojson("%s/coastline.geojson" % folder, "coastline")
 	# Spike: slice1 (8) first; full 19-country admin_regions only if slice1 is missing.
+	var stub_admin := "%s/territories.geojson" % folder
 	if FileAccess.file_exists(slice):
 		_ingest_geojson(slice, "territory")
 	elif FileAccess.file_exists(full):
 		_ingest_geojson(full, "territory")
 	elif FileAccess.file_exists(legacy):
 		_ingest_geojson(legacy, "territory")
+	elif FileAccess.file_exists(stub_admin):
+		_ingest_geojson(stub_admin, "territory")
 	if FileAccess.file_exists("%s/admin_borders.geojson" % folder):
 		_ingest_geojson("%s/admin_borders.geojson" % folder, "border")
 	return not overlay_features.is_empty() or not overlay_rasters.is_empty()

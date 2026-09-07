@@ -93,7 +93,7 @@ Forge lane control on stub_med: Gibraltar is player, Suez is enemy → lane `l_1
 | --- | --- |
 | `data/theaters/stub_med/` | Exact 8-cell Gibraltar → Suez stub (c_0_0…c_5_0 + c_1_1 + Levant c_4_1). Two harbors (`chokepoint:true`, `chokepoint_id` gibraltar\|suez), one lane `l_1`. |
 | `data/theaters/med_v0/` | Larger Mediterranean ribbon sized to the Terra pack: **989 cells / 17 harbors / 34 lanes**. Generated stand-in so KEY_2 works in-repo. |
-| `data/theaters/med_v0/overlays/` | **TODO: Terra bake** (`land_fill.png`, `ocean.png`, `meta.json` bounds, coastline + admin GeoJSON). Stub coastline + 8 territories until those files appear. Shared paint for `stub_med` and `med_v0`. |
+    | `data/theaters/med_v0/overlays/` | Terra `land_fill.png` / `ocean.png` (1024×374) + coastline GeoJSON. Paint prefers `admin_regions_slice1.geojson` (8 regions). Shared for `stub_med` and `med_v0`. |
 
 Theater files (all required):
 
